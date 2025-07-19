@@ -1,62 +1,89 @@
 /**
  * Unit tests for the action's main functionality, src/main.ts
- *
- * To mock dependencies in ESM, you can create fixtures that export mock
- * functions and objects. For example, the core module is mocked in this test,
- * so that the actual '@actions/core' module is not imported.
  */
 import { jest } from '@jest/globals'
 import * as core from '../__fixtures__/core.js'
-import { wait } from '../__fixtures__/wait.js'
 
 // Mocks should be declared before the module being tested is imported.
 jest.unstable_mockModule('@actions/core', () => core)
-jest.unstable_mockModule('../src/wait.js', () => ({ wait }))
+jest.unstable_mockModule('@actions/github', () => ({
+  context: {
+    eventName: 'pull_request',
+    payload: {},
+    repo: { owner: 'test', repo: 'test' },
+    sha: 'abc123',
+    ref: 'refs/heads/main',
+    workflow: 'test',
+    action: 'test',
+    actor: 'test',
+    job: 'test',
+    runNumber: 1,
+    runId: 1
+  }
+}))
 
-// The module being tested should be imported dynamically. This ensures that the
-// mocks are used in place of any actual dependencies.
+jest.unstable_mockModule('../src/config.js', () => ({
+  loadConfig: jest.fn(),
+  getCommandsToRun: jest.fn()
+}))
+
+jest.unstable_mockModule('../src/github.js', () => ({
+  GitHubService: jest.fn()
+}))
+
+jest.unstable_mockModule('../src/executor.js', () => ({
+  CommandExecutor: jest.fn()
+}))
+
+// The module being tested should be imported dynamically.
 const { run } = await import('../src/main.js')
 
 describe('main.ts', () => {
   beforeEach(() => {
     // Set the action's inputs as return values from core.getInput().
-    core.getInput.mockImplementation(() => '500')
-
-    // Mock the wait function so that it does not actually wait.
-    wait.mockImplementation(() => Promise.resolve('done!'))
+    core.getInput.mockImplementation((name: string) => {
+      switch (name) {
+        case 'commands':
+          return 'test-command'
+        case 'github_token':
+          return 'test-token'
+        case 'command_from_comment':
+          return 'false'
+        default:
+          return ''
+      }
+    })
   })
 
   afterEach(() => {
     jest.resetAllMocks()
   })
 
-  it('Sets the time output', async () => {
+  it('Handles missing GitHub token', async () => {
+    core.getInput.mockImplementation((name: string) => {
+      if (name === 'github_token') return ''
+      if (name === 'commands') return 'test-command'
+      return ''
+    })
+
     await run()
 
-    // Verify the time output was set.
-    expect(core.setOutput).toHaveBeenNthCalledWith(
-      1,
-      'time',
-      // Simple regex to match a time string in the format HH:MM:SS.
-      expect.stringMatching(/^\d{2}:\d{2}:\d{2}/)
-    )
+    expect(core.setFailed).toHaveBeenCalledWith('GitHub token is required')
   })
 
-  it('Sets a failed status', async () => {
-    // Clear the getInput mock and return an invalid value.
-    core.getInput.mockClear().mockReturnValueOnce('this is not a number')
-
-    // Clear the wait mock and return a rejected promise.
-    wait
-      .mockClear()
-      .mockRejectedValueOnce(new Error('milliseconds is not a number'))
-
+  it('Handles non-PR context', async () => {
     await run()
 
-    // Verify that the action was marked as failed.
-    expect(core.setFailed).toHaveBeenNthCalledWith(
-      1,
-      'milliseconds is not a number'
+    expect(core.warning).toHaveBeenCalledWith(
+      'Not in a pull request context - some features may be limited'
+    )
+    expect(core.setOutput).toHaveBeenCalledWith(
+      'executed_commands',
+      JSON.stringify([])
+    )
+    expect(core.setOutput).toHaveBeenCalledWith(
+      'commands_summary',
+      'No commands executed - not in PR context'
     )
   })
 })

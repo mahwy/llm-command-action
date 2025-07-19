@@ -1,0 +1,182 @@
+import * as core from '@actions/core'
+import { Octokit } from '@octokit/rest'
+import * as fs from 'fs'
+import * as path from 'path'
+import { ChangedFile, PullRequestInfo, GitHubContext } from './types.js'
+
+export class GitHubService {
+  private octokit: Octokit
+  private context: GitHubContext
+
+  constructor(token: string, context: GitHubContext) {
+    this.octokit = new Octokit({ auth: token })
+    this.context = context
+  }
+
+  async getPullRequestInfo(): Promise<PullRequestInfo | null> {
+    if (
+      this.context.eventName !== 'pull_request' &&
+      this.context.eventName !== 'issue_comment'
+    ) {
+      return null
+    }
+
+    let prNumber: number | undefined
+    if (this.context.eventName === 'pull_request') {
+      prNumber = (this.context.payload as { pull_request?: { number: number } })
+        .pull_request?.number
+    } else {
+      prNumber = (this.context.payload as { issue?: { number: number } }).issue
+        ?.number
+    }
+
+    if (!prNumber) {
+      return null
+    }
+
+    try {
+      const { data: pr } = await this.octokit.rest.pulls.get({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        pull_number: prNumber
+      })
+
+      return {
+        number: pr.number,
+        title: pr.title,
+        body: pr.body || '',
+        author: pr.user?.login || '',
+        base: {
+          ref: pr.base.ref,
+          sha: pr.base.sha
+        },
+        head: {
+          ref: pr.head.ref,
+          sha: pr.head.sha
+        }
+      }
+    } catch (error) {
+      core.warning(`Failed to get pull request info: ${error}`)
+      return null
+    }
+  }
+
+  async getChangedFiles(prInfo: PullRequestInfo): Promise<ChangedFile[]> {
+    try {
+      const { data: files } = await this.octokit.rest.pulls.listFiles({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        pull_number: prInfo.number
+      })
+
+      const changedFiles: ChangedFile[] = []
+
+      for (const file of files) {
+        const changedFile: ChangedFile = {
+          filename: file.filename,
+          status: file.status as 'added' | 'modified' | 'removed' | 'renamed',
+          patch: file.patch
+        }
+
+        if (file.status !== 'removed') {
+          try {
+            const { data: fileContent } =
+              await this.octokit.rest.repos.getContent({
+                owner: this.context.repo.owner,
+                repo: this.context.repo.repo,
+                path: file.filename,
+                ref: prInfo.head.sha
+              })
+
+            if (
+              'content' in fileContent &&
+              typeof fileContent.content === 'string'
+            ) {
+              changedFile.content = Buffer.from(
+                fileContent.content,
+                'base64'
+              ).toString('utf8')
+            }
+          } catch (error) {
+            core.warning(
+              `Failed to get content for file ${file.filename}: ${error}`
+            )
+          }
+        }
+
+        changedFiles.push(changedFile)
+      }
+
+      return changedFiles
+    } catch (error) {
+      core.error(`Failed to get changed files: ${error}`)
+      return []
+    }
+  }
+
+  async getPullRequestComments(
+    prInfo: PullRequestInfo
+  ): Promise<Array<{ author: string; body: string }>> {
+    try {
+      const { data: comments } = await this.octokit.rest.issues.listComments({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        issue_number: prInfo.number
+      })
+
+      return comments.map((comment) => ({
+        author: comment.user?.login || '',
+        body: comment.body || ''
+      }))
+    } catch (error) {
+      core.warning(`Failed to get PR comments: ${error}`)
+      return []
+    }
+  }
+
+  async addPullRequestComment(
+    prInfo: PullRequestInfo,
+    comment: string
+  ): Promise<void> {
+    try {
+      await this.octokit.rest.issues.createComment({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        issue_number: prInfo.number,
+        body: comment
+      })
+      core.info(`Posted comment to PR #${prInfo.number}`)
+    } catch (error) {
+      core.error(`Failed to post comment to PR: ${error}`)
+      throw error
+    }
+  }
+
+  async getReferenceFileContent(filePath: string): Promise<string> {
+    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      try {
+        const response = await fetch(filePath)
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+        return await response.text()
+      } catch (error) {
+        core.warning(`Failed to fetch remote file ${filePath}: ${error}`)
+        return ''
+      }
+    }
+
+    const localPath = path.resolve(filePath)
+    if (fs.existsSync(localPath)) {
+      try {
+        return fs.readFileSync(localPath, 'utf8')
+      } catch (error) {
+        core.warning(`Failed to read local file ${filePath}: ${error}`)
+        return ''
+      }
+    }
+
+    core.warning(`Reference file not found: ${filePath}`)
+    return ''
+  }
+}

@@ -1,0 +1,59 @@
+handle: '@llm_command'
+commands:
+  review-code:
+    description: 'Reviews code changes for quality, style, and potential issues'
+    instructions:
+      - applyTo: '**/*.ts'
+        prompt: |
+          Review this TypeScript file for code quality, potential bugs, and adherence to best practices.
+          Focus on:
+          - Type safety and proper TypeScript usage
+          - Error handling
+          - Code organization and readability
+          - Performance considerations
+          Provide specific, actionable feedback.
+      - applyTo: '**/*.js'
+        prompt: |
+          Review this JavaScript file for code quality, potential bugs, and best practices.
+          Focus on:
+          - Error handling
+          - Code organization and readability
+          - Security considerations
+          - Performance optimizations
+          Provide specific, actionable feedback.
+
+  review-config:
+    description: 'Reviews configuration files for correctness and security'
+    instructions:
+      - applyTo: '**/*.yml'
+        prompt: |
+          Review this YAML configuration file for:
+          - Syntax correctness
+          - Security best practices
+          - Proper structure and organization
+          - Missing or incorrect configurations
+          Provide specific recommendations for improvement.
+      - applyTo: '**/*.json'
+        prompt: |
+          Review this JSON configuration file for:
+          - Valid JSON syntax
+          - Proper structure
+          - Security considerations
+          - Best practices
+          Suggest improvements where applicable.
+
+  test-review:
+    description: 'Reviews test files for completeness and quality'
+    instructions:
+      - applyTo: '**/*.test.*'
+        prompt: |
+          Review this test file for:
+          - Test coverage and completeness
+          - Test structure and organization
+          - Assertion quality
+          - Edge case coverage
+          - Mock usage and test isolation
+          Suggest additional tests or improvements.
+        files:
+          - path: 'jest.config.js'
+            name: 'Jest configuration'

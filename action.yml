@@ -1,23 +1,38 @@
-name: The name of your action here
-description: Provide a description here
-author: Your name or organization here
+name: LLM Command Action
+description:
+  Execute LLM-powered commands to enhance CI workflows with code reviews,
+  documentation generation, and automated analysis
+author: LLM Command Action
 
 # Add your action's branding here. This will appear on the GitHub Marketplace.
 branding:
-  icon: heart
-  color: red
+  icon: cpu
+  color: blue
 
 # Define your inputs here.
 inputs:
-  milliseconds:
-    description: Your input description here
+  commands:
+    description:
+      'Comma-separated list of commands to execute (e.g.
+      "review-code,update-docs")'
     required: true
-    default: '1000'
+  github_token:
+    description: 'GitHub token for API access'
+    required: false
+    default: ${{ github.token }}
+  command_from_comment:
+    description:
+      'Whether to parse command from PR comment (for comment-triggered
+      workflows)'
+    required: false
+    default: 'false'
 
 # Define your outputs here.
 outputs:
-  time:
-    description: Your output description here
+  executed_commands:
+    description: 'JSON array of commands that were executed'
+  commands_summary:
+    description: 'Summary of all executed commands'
 
 runs:
   using: node20
