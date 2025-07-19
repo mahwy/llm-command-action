@@ -1,0 +1,135 @@
+# Improved schema following best practices
+
+scalar DateTime
+
+type User {
+  id: ID!
+  name: String!
+  email: String!
+  posts(first: Int, after: String): PostConnection!
+  createdAt: DateTime!
+}
+
+type Post {
+  id: ID!
+  title: String!
+  content: String!
+  author: User!
+  tags: [String!]!
+  comments(first: Int, after: String): CommentConnection!
+  createdAt: DateTime!
+  publishedAt: DateTime
+  isPublished: Boolean!
+}
+
+type Comment {
+  id: ID!
+  content: String!
+  author: User!
+  post: Post!
+  createdAt: DateTime!
+}
+
+# Connection types for pagination
+type PostConnection {
+  edges: [PostEdge!]!
+  pageInfo: PageInfo!
+}
+
+type PostEdge {
+  node: Post!
+  cursor: String!
+}
+
+type CommentConnection {
+  edges: [CommentEdge!]!
+  pageInfo: PageInfo!
+}
+
+type CommentEdge {
+  node: Comment!
+  cursor: String!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+type Query {
+  user(id: ID!): User
+  users(first: Int, after: String): UserConnection!
+  post(id: ID!): Post
+  posts(first: Int, after: String): PostConnection!
+}
+
+type UserConnection {
+  edges: [UserEdge!]!
+  pageInfo: PageInfo!
+}
+
+type UserEdge {
+  node: User!
+  cursor: String!
+}
+
+type Mutation {
+  createUser(input: CreateUserInput!): CreateUserPayload!
+  createPost(input: CreatePostInput!): CreatePostPayload!
+  publishPost(input: PublishPostInput!): PublishPostPayload!
+  createComment(input: CreateCommentInput!): CreateCommentPayload!
+}
+
+input CreateUserInput {
+  name: String!
+  email: String!
+}
+
+input CreatePostInput {
+  title: String!
+  content: String!
+  authorId: ID!
+  tags: [String!]
+}
+
+input PublishPostInput {
+  id: ID!
+}
+
+input CreateCommentInput {
+  content: String!
+  authorId: ID!
+  postId: ID!
+}
+
+type CreateUserPayload {
+  user: User
+  errors: [UserError!]!
+}
+
+type CreatePostPayload {
+  post: Post
+  errors: [UserError!]!
+}
+
+type PublishPostPayload {
+  post: Post
+  errors: [UserError!]!
+}
+
+type CreateCommentPayload {
+  comment: Comment
+  errors: [UserError!]!
+}
+
+type UserError {
+  field: String!
+  message: String!
+}
+
+type Subscription {
+  postAdded: Post!
+  commentAdded(postId: ID!): Comment!
+}
