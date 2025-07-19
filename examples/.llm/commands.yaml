@@ -1,0 +1,65 @@
+handle: @llm_command
+
+commands:
+  review-database-schema:
+    description: Reviews database schema files for consistency, normalization, and naming conventions.
+    instructions:
+      - applyTo: "sql-database/**/*.sql"
+        prompt: |
+          Review this SQL schema definition. Check for normalization, naming conventions, and indexing.
+          Suggest improvements or raise warnings if there are any anti-patterns.
+        files:
+          - path: "guidelines/db-schema-style.md"
+            name: "Database schema guidelines"
+
+  review-graphql-schema:
+    description: Reviews GraphQL schema files for consistency and best practices.
+    instructions:
+      - applyTo: "graphql-blog/**/*.graphql"
+        prompt: |
+          Review this GraphQL schema file against the provided style and naming guidelines.
+          Highlight any issues and suggest improvements.
+        files:
+          - path: "guidelines/graphql-style.md"
+            name: "GraphQL style guide"
+
+  summarize-discussion:
+    description: Summarizes the discussion in a pull request thread.
+    instructions:
+      - applyTo: "."
+        prompt: |
+          Summarize the conversation between reviewers and authors in this pull request.
+          Highlight key concerns, decisions, and remaining open questions.
+
+  update-changelog:
+    description: Updates or creates the CHANGELOG.md file based on changes in the pull request.
+    instructions:
+      - applyTo: "auth-api/**/*"
+        prompt: |
+          Based on the code changes and PR title and description, generate or update an entry in CHANGELOG.md.
+          Maintain consistent formatting and group changes by type (e.g., Feature, Fix, Docs).
+        files:
+          - path: "auth-api/CHANGELOG.md"
+          - path: "guidelines/changelog-format.md"
+            name: "Changelog formatting template"
+
+  review-typescript-code:
+    description: Reviews TypeScript code for best practices, type safety, and potential issues.
+    instructions:
+      - applyTo: "auth-api/**/*.ts"
+        prompt: |
+          Review this TypeScript code for:
+          - Type safety and proper TypeScript usage
+          - Code structure and organization
+          - Potential bugs or security issues
+          - Best practices and conventions
+          Provide specific suggestions for improvement.
+
+  fix-syntax-errors:
+    description: Identifies and suggests fixes for syntax errors in code files.
+    instructions:
+      - applyTo: "broken-code/**/*.{js,ts,py}"
+        prompt: |
+          Analyze this code file for syntax errors and provide specific fixes.
+          List each error with its line number and the corrected code.
+          Explain what was wrong and why the fix is needed.
