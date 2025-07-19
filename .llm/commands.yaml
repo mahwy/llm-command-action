@@ -7,6 +7,7 @@ commands:
       conventions.
     instructions:
       - applyTo: 'examples/sql-database/**/*.sql'
+        modifiedOnly: true # Default: true - only review files modified in PR
         prompt: |
           Review this SQL schema definition. Check for normalization, naming conventions, and indexing.
           Suggest improvements or raise warnings if there are any anti-patterns.
@@ -29,7 +30,9 @@ commands:
   summarize-discussion:
     description: Summarizes the discussion in a pull request thread.
     instructions:
-      - prompt: |
+      - applyTo: '**/*' # This command doesn't need specific files
+        modifiedOnly: false # This command works with PR discussion, not files
+        prompt: |
           Summarize the conversation between reviewers and authors in this pull request.
           Highlight key concerns, decisions, and remaining open questions.
 
@@ -53,6 +56,7 @@ commands:
       issues.
     instructions:
       - applyTo: 'examples/auth-api/**/*.ts'
+        modifiedOnly: true # Only review TypeScript files modified in this PR
         prompt: |
           Review this TypeScript code for:
           - Type safety and proper TypeScript usage

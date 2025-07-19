@@ -42,7 +42,7 @@ export async function run(): Promise<void> {
       )
     } else {
       requestedCommands = commandsInput
-        .split(',')
+        .split(/[,\n]/)
         .map((cmd) => cmd.trim())
         .filter((cmd) => cmd)
     }
