@@ -138,19 +138,65 @@ export class GitHubService {
 
   async addPullRequestComment(
     prInfo: PullRequestInfo,
-    comment: string
+    comment: string,
+    commandName?: string
   ): Promise<void> {
     try {
-      await this.octokit.rest.issues.createComment({
-        owner: this.context.repo.owner,
-        repo: this.context.repo.repo,
-        issue_number: prInfo.number,
-        body: comment
-      })
+      // If commandName is provided, delete previous comments from the same command
+      if (commandName) {
+        await this.deletePreviousCommandComments(prInfo, commandName)
+
+        // Add hidden HTML comment identifier
+        const commentWithId = `<!-- llm-command-action:${commandName} -->\n${comment}`
+
+        await this.octokit.rest.issues.createComment({
+          owner: this.context.repo.owner,
+          repo: this.context.repo.repo,
+          issue_number: prInfo.number,
+          body: commentWithId
+        })
+      } else {
+        await this.octokit.rest.issues.createComment({
+          owner: this.context.repo.owner,
+          repo: this.context.repo.repo,
+          issue_number: prInfo.number,
+          body: comment
+        })
+      }
       core.info(`Posted comment to PR #${prInfo.number}`)
     } catch (error) {
       core.error(`Failed to post comment to PR: ${error}`)
       throw error
+    }
+  }
+
+  private async deletePreviousCommandComments(
+    prInfo: PullRequestInfo,
+    commandName: string
+  ): Promise<void> {
+    try {
+      const { data: comments } = await this.octokit.rest.issues.listComments({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        issue_number: prInfo.number
+      })
+
+      const commentIdentifier = `<!-- llm-command-action:${commandName} -->`
+
+      for (const comment of comments) {
+        if (comment.body?.includes(commentIdentifier)) {
+          await this.octokit.rest.issues.deleteComment({
+            owner: this.context.repo.owner,
+            repo: this.context.repo.repo,
+            comment_id: comment.id
+          })
+          core.info(`Deleted previous comment from command ${commandName}`)
+        }
+      }
+    } catch (error) {
+      core.warning(
+        `Failed to delete previous comments for command ${commandName}: ${error}`
+      )
     }
   }
 

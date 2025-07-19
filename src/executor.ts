@@ -89,7 +89,11 @@ export class CommandExecutor {
         const commentHeader = `## 🤖 ${commandName}\n\n${commandConfig.description}\n\n`
         const fullComment = commentHeader + result.pull_request_comment
 
-        await this.githubService.addPullRequestComment(prInfo, fullComment)
+        await this.githubService.addPullRequestComment(
+          prInfo,
+          fullComment,
+          commandName
+        )
         core.info(`Posted comment for command ${commandName}`)
       }
 
@@ -104,7 +108,11 @@ export class CommandExecutor {
         `**Error:** ${error instanceof Error ? error.message : 'Unknown error'}\n\n` +
         `Please check the action logs for more details.`
 
-      await this.githubService.addPullRequestComment(prInfo, errorComment)
+      await this.githubService.addPullRequestComment(
+        prInfo,
+        errorComment,
+        commandName
+      )
       throw error
     }
   }
