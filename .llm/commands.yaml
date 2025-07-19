@@ -6,7 +6,7 @@ commands:
       Reviews database schema files for consistency, normalization, and naming
       conventions.
     instructions:
-      - applyTo: 'exmaples/sql-database/**/*.sql'
+      - applyTo: 'examples/sql-database/**/*.sql'
         prompt: |
           Review this SQL schema definition. Check for normalization, naming conventions, and indexing.
           Suggest improvements or raise warnings if there are any anti-patterns.
@@ -18,7 +18,7 @@ commands:
     description:
       Reviews GraphQL schema files for consistency and best practices.
     instructions:
-      - applyTo: 'exmaples/graphql-blog/**/*.graphql'
+      - applyTo: 'examples/graphql-blog/**/*.graphql'
         prompt: |
           Review this GraphQL schema file against the provided style and naming guidelines.
           Highlight any issues and suggest improvements.
@@ -29,8 +29,7 @@ commands:
   summarize-discussion:
     description: Summarizes the discussion in a pull request thread.
     instructions:
-      - applyTo: '.'
-        prompt: |
+      - prompt: |
           Summarize the conversation between reviewers and authors in this pull request.
           Highlight key concerns, decisions, and remaining open questions.
 
@@ -39,7 +38,7 @@ commands:
       Updates or creates the CHANGELOG.md file based on changes in the pull
       request.
     instructions:
-      - applyTo: 'exmaples/auth-api/**/*'
+      - applyTo: 'examples/auth-api/**/*'
         prompt: |
           Based on the code changes and PR title and description, generate or update an entry in CHANGELOG.md.
           Maintain consistent formatting and group changes by type (e.g., Feature, Fix, Docs).
@@ -53,7 +52,7 @@ commands:
       Reviews TypeScript code for best practices, type safety, and potential
       issues.
     instructions:
-      - applyTo: 'exmaples/auth-api/**/*.ts'
+      - applyTo: 'examples/auth-api/**/*.ts'
         prompt: |
           Review this TypeScript code for:
           - Type safety and proper TypeScript usage

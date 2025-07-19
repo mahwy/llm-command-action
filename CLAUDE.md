@@ -83,11 +83,13 @@ npx @github/local-action . src/main.ts .env
 ```
 
 This command will:
+
 - Use the current directory (`.`) as the action path
 - Execute `src/main.ts` as the entry point
 - Load environment variables from `.env` file
 
 Make sure to:
+
 1. Set your API keys in `.env` (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
 2. Configure action inputs with `INPUT_` prefix (e.g., `INPUT_COMMANDS`)
 3. Build the action first with `npm run bundle` if testing packaged version

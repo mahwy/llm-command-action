@@ -1,5 +1,7 @@
 import * as core from '@actions/core'
-import * as minimatch from 'minimatch'
+import * as glob from 'glob'
+import * as fs from 'fs'
+import * as path from 'path'
 import { b } from './baml_client/index.js'
 import {
   CommandConfig,
@@ -43,7 +45,7 @@ export class CommandExecutor {
     changedFiles: ChangedFile[],
     prInfo: PullRequestInfo
   ): Promise<void> {
-    const targetFiles = this.getMatchingFiles(changedFiles, instruction.applyTo)
+    const targetFiles = await this.getMatchingFiles(instruction.applyTo)
 
     if (targetFiles.length === 0) {
       core.info(
@@ -71,7 +73,7 @@ export class CommandExecutor {
     const bamlTargetFiles = targetFiles.map((file) => ({
       name: file.filename,
       path: file.filename,
-      content: file.content || ''
+      content: file.content
     }))
 
     try {
@@ -107,16 +109,59 @@ export class CommandExecutor {
     }
   }
 
-  private getMatchingFiles(
-    changedFiles: ChangedFile[],
-    pattern: string
-  ): ChangedFile[] {
-    return changedFiles.filter((file) => {
-      if (pattern === '.' || pattern === '**' || pattern === '**/*') {
-        return true
+  private async getMatchingFiles(
+    pattern: string,
+    baseDir: string = process.cwd()
+  ): Promise<Array<{ filename: string; content: string }>> {
+    // Handle special cases for all files
+    if (pattern === '.' || pattern === '**' || pattern === '**/*') {
+      pattern = '**/*'
+    }
+
+    try {
+      // Use glob to find all matching files in the repository
+      const matchingPaths = glob.sync(pattern, {
+        cwd: baseDir,
+        ignore: [
+          '**/node_modules/**',
+          '**/.git/**',
+          '**/dist/**',
+          '**/build/**',
+          '**/*.min.js',
+          '**/*.map'
+        ],
+        nodir: true
+      })
+
+      const files = []
+      for (const relativePath of matchingPaths) {
+        const fullPath = path.join(baseDir, relativePath)
+        try {
+          // Check if file is readable and not too large (limit to 1MB)
+          const stats = fs.statSync(fullPath)
+          if (stats.size > 1024 * 1024) {
+            core.warning(
+              `Skipping large file: ${relativePath} (${stats.size} bytes)`
+            )
+            continue
+          }
+
+          const content = fs.readFileSync(fullPath, 'utf8')
+          files.push({
+            filename: relativePath,
+            content
+          })
+        } catch (error) {
+          core.warning(`Failed to read file ${relativePath}: ${error}`)
+        }
       }
-      return minimatch.minimatch(file.filename, pattern)
-    })
+
+      core.info(`Found ${files.length} files matching pattern "${pattern}"`)
+      return files
+    } catch (error) {
+      core.error(`Error finding files with pattern "${pattern}": ${error}`)
+      return []
+    }
   }
 
   private async loadReferenceFiles(

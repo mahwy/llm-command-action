@@ -19,7 +19,6 @@ export interface LLMCommandsConfig {
   commands: Record<string, CommandConfig>
 }
 
-
 export interface PullRequestInfo {
   number: number
   title: string
