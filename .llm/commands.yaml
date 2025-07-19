@@ -23,7 +23,7 @@ commands:
           Review this GraphQL schema file against the provided style and naming guidelines.
           Highlight any issues and suggest improvements.
         files:
-          - path: 'guidelines/graphql-style.md'
+          - path: 'https://github.com/mahwy/llm-command-action/blob/main/examples/guidelines/graphql-style.md'
             name: 'GraphQL style guide'
 
   summarize-discussion:
@@ -44,7 +44,7 @@ commands:
           Maintain consistent formatting and group changes by type (e.g., Feature, Fix, Docs).
         files:
           - path: 'auth-api/CHANGELOG.md'
-          - path: 'guidelines/changelog-format.md'
+          - path: 'https://github.com/mahwy/llm-command-action/blob/main/examplesguidelines/changelog-format.md'
             name: 'Changelog formatting template'
 
   review-typescript-code:

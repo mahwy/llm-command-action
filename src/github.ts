@@ -155,16 +155,43 @@ export class GitHubService {
   }
 
   async getReferenceFileContent(filePath: string): Promise<string> {
+    core.info(`Fetching reference file from: ${filePath}`)
     if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
-      try {
-        const response = await fetch(filePath)
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      const githubFileInfo = this.parseGitHubUrl(filePath)
+      if (githubFileInfo) {
+        try {
+          const { data: fileContent } =
+            await this.octokit.rest.repos.getContent({
+              owner: githubFileInfo.owner,
+              repo: githubFileInfo.repo,
+              path: githubFileInfo.path,
+              ref: githubFileInfo.ref
+            })
+
+          if (
+            'content' in fileContent &&
+            typeof fileContent.content === 'string'
+          ) {
+            return Buffer.from(fileContent.content, 'base64').toString('utf8')
+          } else {
+            core.warning(`File ${filePath} is not a regular file`)
+            return ''
+          }
+        } catch (error) {
+          core.warning(`Failed to fetch GitHub file ${filePath}: ${error}`)
+          return ''
         }
-        return await response.text()
-      } catch (error) {
-        core.warning(`Failed to fetch remote file ${filePath}: ${error}`)
-        return ''
+      } else {
+        try {
+          const response = await fetch(filePath)
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+          }
+          return await response.text()
+        } catch (error) {
+          core.warning(`Failed to fetch remote file ${filePath}: ${error}`)
+          return ''
+        }
       }
     }
 
@@ -180,5 +207,35 @@ export class GitHubService {
 
     core.warning(`Reference file not found: ${filePath}`)
     return ''
+  }
+
+  private parseGitHubUrl(url: string): {
+    owner: string
+    repo: string
+    path: string
+    ref: string
+  } | null {
+    try {
+      const urlObj = new URL(url)
+
+      if (urlObj.hostname !== 'github.com') {
+        return null
+      }
+
+      const pathParts = urlObj.pathname.split('/').filter((part) => part)
+
+      if (pathParts.length < 5 || pathParts[2] !== 'blob') {
+        return null
+      }
+
+      const owner = pathParts[0]
+      const repo = pathParts[1]
+      const ref = pathParts[3]
+      const path = pathParts.slice(4).join('/')
+
+      return { owner, repo, path, ref }
+    } catch {
+      return null
+    }
   }
 }
