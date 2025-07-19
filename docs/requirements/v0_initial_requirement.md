@@ -95,7 +95,7 @@ handles:
 ## Configuration Example
 
 ```yaml
-handle: @llm_command
+handle: llm_command
 commands:
   review-database-schema:
     description: Reviews database schema files for consistency, normalization, and naming conventions.

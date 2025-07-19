@@ -1,4 +1,4 @@
-handle: @llm_command
+handle: llm_command
 
 commands:
   review-database-schema:
