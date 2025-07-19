@@ -1,15 +1,15 @@
 import * as core from '@actions/core'
-import { Octokit } from '@octokit/rest'
+import * as github from '@actions/github'
 import * as fs from 'fs'
 import * as path from 'path'
-import { ChangedFile, PullRequestInfo, GitHubContext } from './types.js'
+import { ChangedFile, PullRequestInfo } from './types.js'
 
 export class GitHubService {
-  private octokit: Octokit
-  private context: GitHubContext
+  private octokit: ReturnType<typeof github.getOctokit>
+  private context: typeof github.context
 
-  constructor(token: string, context: GitHubContext) {
-    this.octokit = new Octokit({ auth: token })
+  constructor(token: string, context: typeof github.context = github.context) {
+    this.octokit = github.getOctokit(token)
     this.context = context
   }
 
@@ -40,6 +40,8 @@ export class GitHubService {
         repo: this.context.repo.repo,
         pull_number: prNumber
       })
+
+      console.log('PR Data', pr)
 
       return {
         number: pr.number,

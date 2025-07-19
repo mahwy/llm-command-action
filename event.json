@@ -1,0 +1,11 @@
+{
+    "repository": {
+        "owner": {
+            "login": "mahwy"
+        },
+        "name": "llm-command-action"
+    },
+    "pull_request": {
+        "number": 4
+    }
+}

@@ -74,6 +74,24 @@ distribution. This is required before testing or deploying.
 Use `npm run local-action` or the VS Code debugger to test the action locally
 without pushing to GitHub.
 
+#### Direct Local Execution
+
+You can also run the action directly using `@github/local-action`:
+
+```bash
+npx @github/local-action . src/main.ts .env
+```
+
+This command will:
+- Use the current directory (`.`) as the action path
+- Execute `src/main.ts` as the entry point
+- Load environment variables from `.env` file
+
+Make sure to:
+1. Set your API keys in `.env` (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
+2. Configure action inputs with `INPUT_` prefix (e.g., `INPUT_COMMANDS`)
+3. Build the action first with `npm run bundle` if testing packaged version
+
 ### BAML Development
 
 - Modify `.baml` files in `baml_src/` to change LLM function definitions

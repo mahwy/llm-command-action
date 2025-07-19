@@ -19,22 +19,6 @@ export interface LLMCommandsConfig {
   commands: Record<string, CommandConfig>
 }
 
-export interface GitHubContext {
-  eventName: string
-  payload: Record<string, unknown>
-  repo: {
-    owner: string
-    repo: string
-  }
-  sha: string
-  ref: string
-  workflow: string
-  action: string
-  actor: string
-  job: string
-  runNumber: number
-  runId: number
-}
 
 export interface PullRequestInfo {
   number: number

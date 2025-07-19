@@ -40,7 +40,6 @@
     "@actions/core": "^1.11.1",
     "@actions/github": "^6.0.1",
     "@boundaryml/baml": "^0.201.0",
-    "@octokit/rest": "^21.1.1",
     "@types/js-yaml": "^4.0.9",
     "@types/minimatch": "^5.1.2",
     "js-yaml": "^4.1.0",

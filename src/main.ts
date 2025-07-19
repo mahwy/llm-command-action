@@ -3,7 +3,6 @@ import * as github from '@actions/github'
 import { loadConfig, getCommandsToRun } from './config.js'
 import { GitHubService } from './github.js'
 import { CommandExecutor } from './executor.js'
-import { GitHubContext } from './types.js'
 
 /**
  * The main function for the action.
@@ -21,24 +20,12 @@ export async function run(): Promise<void> {
       throw new Error('GitHub token is required')
     }
 
-    const context: GitHubContext = {
-      eventName: github.context.eventName,
-      payload: github.context.payload,
-      repo: github.context.repo,
-      sha: github.context.sha,
-      ref: github.context.ref,
-      workflow: github.context.workflow,
-      action: github.context.action,
-      actor: github.context.actor,
-      job: github.context.job,
-      runNumber: github.context.runNumber,
-      runId: github.context.runId
-    }
+    core.info(`Event: ${github.context.eventName}`)
+    core.info(
+      `Repository: ${github.context.repo.owner}/${github.context.repo.repo}`
+    )
 
-    core.info(`Event: ${context.eventName}`)
-    core.info(`Repository: ${context.repo.owner}/${context.repo.repo}`)
-
-    const githubService = new GitHubService(githubToken, context)
+    const githubService = new GitHubService(githubToken, github.context)
     const executor = new CommandExecutor(githubService)
 
     const config = await loadConfig(process.cwd())
@@ -47,9 +34,10 @@ export async function run(): Promise<void> {
     )
 
     let requestedCommands: string[]
-    if (commandFromComment && context.eventName === 'issue_comment') {
+    if (commandFromComment && github.context.eventName === 'issue_comment') {
       requestedCommands = parseCommandFromComment(
-        (context.payload as { comment?: { body: string } }).comment?.body || '',
+        (github.context.payload as { comment?: { body: string } }).comment
+          ?.body || '',
         config.handle
       )
     } else {
