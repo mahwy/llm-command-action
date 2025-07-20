@@ -101,7 +101,8 @@ export class CommandExecutor {
     const bamlTargetFiles = targetFiles.map((file) => ({
       name: file.filename,
       path: file.filename,
-      content: file.content
+      content: file.content,
+      patch: file.patch
     }))
 
     try {
@@ -208,7 +209,8 @@ export class CommandExecutor {
           if (changedFile && changedFile.content) {
             files.push({
               filename: relativePath,
-              content: changedFile.content
+              content: changedFile.content,
+              patch: changedFile.patch
             })
             continue
           }

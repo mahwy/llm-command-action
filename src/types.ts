@@ -49,4 +49,4 @@ export interface PullRequestComment {
   commandName?: string
 }
 
-export type TargetFile = { filename: string; content: string }
+export type TargetFile = { filename: string; content: string; patch?: string }

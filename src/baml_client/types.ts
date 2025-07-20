@@ -65,12 +65,7 @@ export interface File {
   name?: string | null
   path: string
   content: string
-  
-}
-
-export interface FileDiff {
-  path: string
-  diff: string
+  patch?: string | null
   
 }
 

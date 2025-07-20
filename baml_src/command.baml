@@ -6,14 +6,6 @@ class CommandOuputInPullRequest {
   summary string @description(#"
     A summary of the input prompt and the output response.
   "#)
-  // file_diffs FileDiff[]
-}
-
-class FileDiff {
-  path string
-  diff string @description(#"
-    A diff of the file in unidiff format.
-  "#)
 }
 
 class PullRequest {
@@ -37,6 +29,7 @@ class File {
   name string?
   path string
   content string
+  patch string?
 }
 
 
@@ -69,6 +62,11 @@ function ExecuteCommandInPullRequest(inputPrompt: string, targetFiles: File[], p
     <content>
     {{f.content}}
     </content>
+    {% if f.patch %}
+    <patch>
+    {{f.patch}}
+    </patch>
+    {% endif %}
     </file>
     {% endfor %}
     </targetFiles>

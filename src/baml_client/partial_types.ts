@@ -20,7 +20,7 @@ $ pnpm add @boundaryml/baml
 
 import type { Image, Audio } from "@boundaryml/baml"
 import type { Checked, Check } from "./types"
-import type {  CommandOuputInPullRequest,  Comment,  File,  FileDiff,  PullRequest } from "./types"
+import type {  CommandOuputInPullRequest,  Comment,  File,  PullRequest } from "./types"
 import type * as types from "./types"
 
 /******************************************************************************
@@ -50,10 +50,7 @@ export namespace partial_types {
       name?: string | null
       path?: string | null
       content?: string | null
-    }
-    export interface FileDiff {
-      path?: string | null
-      diff?: string | null
+      patch?: string | null
     }
     export interface PullRequest {
       title?: string | null
