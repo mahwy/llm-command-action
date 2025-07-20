@@ -43455,8 +43455,10 @@ const b = new BamlAsyncClient(DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOI
 
 class CommandExecutor {
     githubService;
-    constructor(githubService) {
+    llmClients;
+    constructor(githubService, llmClients = []) {
         this.githubService = githubService;
+        this.llmClients = llmClients;
     }
     async executeCommand(commandName, commandConfig, changedFiles, prInfo) {
         coreExports.info(`Executing command: ${commandName}`);
@@ -43504,7 +43506,42 @@ class CommandExecutor {
         }));
         try {
             coreExports.info(`Executing LLM function for command ${commandName}`);
-            const result = await b.ExecuteCommandInPullRequest(instruction.prompt, bamlTargetFiles, pullRequest, referenceFiles);
+            const collector = new bamlExports.Collector('llm-command-action');
+            const clientRegistry = new bamlExports.ClientRegistry();
+            // Setup LLM clients from configuration
+            if (this.llmClients.length > 0) {
+                for (let i = 0; i < this.llmClients.length; i++) {
+                    const clientConfig = this.llmClients[i];
+                    const clientName = `llm-command-action-client-${i}`;
+                    // Resolve environment variables in api_key
+                    const options = { ...clientConfig.options };
+                    if (options.api_key && options.api_key.startsWith('env.')) {
+                        const envVar = options.api_key.substring(4);
+                        options.api_key = process.env[envVar];
+                    }
+                    clientRegistry.addLlmClient(clientName, clientConfig.provider, options);
+                    // Set the first client as primary
+                    if (i === 0) {
+                        clientRegistry.setPrimary(clientName);
+                    }
+                }
+            }
+            else {
+                // Fallback to hardcoded OpenAI client if no configuration provided
+                const provider = 'openai';
+                const apiKey = process.env.OPENAI_API_KEY;
+                const model = 'gpt-4o-mini';
+                clientRegistry.addLlmClient('llm-command-action-client', provider, {
+                    api_key: apiKey,
+                    model
+                });
+                clientRegistry.setPrimary('llm-command-action-client');
+            }
+            const result = await b.ExecuteCommandInPullRequest(instruction.prompt, bamlTargetFiles, pullRequest, referenceFiles, {
+                clientRegistry,
+                collector
+            });
+            coreExports.info(`LLM Usage: ${collector.usage}`);
             if (result.pull_request_comment) {
                 const commentHeader = `## 🤖 ${commandName}\n\n${commandConfig.description}\n\n`;
                 const fullComment = commentHeader + result.pull_request_comment;
@@ -43642,8 +43679,8 @@ async function run() {
         coreExports.info(`Event: ${githubExports.context.eventName}`);
         coreExports.info(`Repository: ${githubExports.context.repo.owner}/${githubExports.context.repo.repo}`);
         const githubService = new GitHubService(githubToken, githubExports.context);
-        const executor = new CommandExecutor(githubService);
         const config = await loadConfig(process.cwd());
+        const executor = new CommandExecutor(githubService, config['llm-clients'] || []);
         coreExports.info(`Loaded configuration with ${Object.keys(config.commands).length} commands`);
         let requestedCommands;
         if (commandFromComment && githubExports.context.eventName === 'issue_comment') {
