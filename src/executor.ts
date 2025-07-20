@@ -151,6 +151,8 @@ export class CommandExecutor {
     baseDir: string = process.cwd(),
     changedFiles?: ChangedFile[]
   ): Promise<TargetFile[]> {
+    core.info(`Getting matching files for "${pattern}" in ${baseDir}`)
+
     if (pattern === '') {
       return []
     }

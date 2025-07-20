@@ -34125,7 +34125,6 @@ class GitHubService {
                 repo: this.context.repo.repo,
                 pull_number: prNumber
             });
-            console.log('PR Data', pr);
             return {
                 number: pr.number,
                 title: pr.title,
@@ -43526,6 +43525,7 @@ class CommandExecutor {
         }
     }
     async getMatchingFiles(pattern, baseDir = process.cwd(), changedFiles) {
+        coreExports.info(`Getting matching files for "${pattern}" in ${baseDir}`);
         if (pattern === '') {
             return [];
         }
