@@ -41,8 +41,6 @@ export class GitHubService {
         pull_number: prNumber
       })
 
-      console.log('PR Data', pr)
-
       return {
         number: pr.number,
         title: pr.title,
