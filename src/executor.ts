@@ -7,7 +7,8 @@ import {
   CommandConfig,
   CommandInstruction,
   ChangedFile,
-  PullRequestInfo
+  PullRequestInfo,
+  TargetFile
 } from './types.js'
 import { GitHubService } from './github.js'
 
@@ -45,36 +46,40 @@ export class CommandExecutor {
     changedFiles: ChangedFile[],
     prInfo: PullRequestInfo
   ): Promise<void> {
-    const modifiedOnly = instruction.modifiedOnly ?? true
-    const targetFiles = await this.getMatchingFiles(
-      instruction.applyTo,
-      process.cwd(),
-      modifiedOnly ? changedFiles : undefined
-    )
+    let targetFiles: TargetFile[] = []
+    const applyTo = instruction.applyTo ?? 'none'
+    if (applyTo != 'none') {
+      const modifiedOnly = instruction.modifiedOnly ?? true
+      targetFiles = await this.getMatchingFiles(
+        applyTo,
+        process.cwd(),
+        modifiedOnly ? changedFiles : undefined
+      )
 
-    if (targetFiles.length === 0) {
-      const noFilesComment = modifiedOnly
-        ? `## 🤖 ${commandName}\n\n${commandConfig.description}\n\n` +
-          `No modified files match the pattern "${instruction.applyTo}" in this pull request.`
-        : `No files match pattern "${instruction.applyTo}" for command ${commandName}`
+      if (targetFiles.length === 0) {
+        const noFilesComment = modifiedOnly
+          ? `## 🤖 ${commandName}\n\n${commandConfig.description}\n\n` +
+            `No modified files match the pattern "${applyTo}" in this pull request.`
+          : `No files match pattern "${applyTo}" for command ${commandName}`
 
-      if (modifiedOnly) {
-        await this.githubService.addPullRequestComment(
-          prInfo,
-          noFilesComment,
-          commandName
+        if (modifiedOnly) {
+          await this.githubService.addPullRequestComment(
+            prInfo,
+            noFilesComment,
+            commandName
+          )
+        }
+
+        core.info(
+          `No files match pattern "${applyTo}" for command ${commandName}`
         )
+        return
       }
 
       core.info(
-        `No files match pattern "${instruction.applyTo}" for command ${commandName}`
+        `Found ${targetFiles.length} matching files for pattern "${applyTo}"`
       )
-      return
     }
-
-    core.info(
-      `Found ${targetFiles.length} matching files for pattern "${instruction.applyTo}"`
-    )
 
     const referenceFiles = await this.loadReferenceFiles(
       instruction.files || []
@@ -85,7 +90,12 @@ export class CommandExecutor {
     const pullRequest = {
       title: prInfo.title,
       body: prInfo.body,
-      comments: prComments
+      comments: prComments.map((comment) => ({
+        author: comment.author,
+        body: comment.body,
+        isFromLLMAction: comment.isFromLLMAction,
+        commandName: comment.commandName
+      }))
     }
 
     const bamlTargetFiles = targetFiles.map((file) => ({
@@ -139,7 +149,10 @@ export class CommandExecutor {
     pattern: string,
     baseDir: string = process.cwd(),
     changedFiles?: ChangedFile[]
-  ): Promise<Array<{ filename: string; content: string }>> {
+  ): Promise<TargetFile[]> {
+    if (pattern === '') {
+      return []
+    }
     // Handle special cases for all files
     if (pattern === '.' || pattern === '**' || pattern === '**/*') {
       pattern = '**/*'

@@ -2,7 +2,7 @@ import * as core from '@actions/core'
 import * as github from '@actions/github'
 import * as fs from 'fs'
 import * as path from 'path'
-import { ChangedFile, PullRequestInfo } from './types.js'
+import { ChangedFile, PullRequestInfo, PullRequestComment } from './types.js'
 
 export class GitHubService {
   private octokit: ReturnType<typeof github.getOctokit>
@@ -118,7 +118,7 @@ export class GitHubService {
 
   async getPullRequestComments(
     prInfo: PullRequestInfo
-  ): Promise<Array<{ author: string; body: string }>> {
+  ): Promise<PullRequestComment[]> {
     try {
       const { data: comments } = await this.octokit.rest.issues.listComments({
         owner: this.context.repo.owner,
@@ -126,10 +126,19 @@ export class GitHubService {
         issue_number: prInfo.number
       })
 
-      return comments.map((comment) => ({
-        author: comment.user?.login || '',
-        body: comment.body || ''
-      }))
+      return comments.map((comment) => {
+        const body = comment.body || ''
+        const llmActionMarkerMatch = body.match(
+          /<!-- llm-command-action:(.+?) -->/
+        )
+
+        return {
+          author: comment.user?.login || '',
+          body,
+          isFromLLMAction: !!llmActionMarkerMatch,
+          commandName: llmActionMarkerMatch?.[1]
+        }
+      })
     } catch (error) {
       core.warning(`Failed to get PR comments: ${error}`)
       return []

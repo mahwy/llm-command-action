@@ -22,19 +22,17 @@ commands:
       - applyTo: 'examples/graphql-blog/**/*.graphql'
         prompt: |
           Review this GraphQL schema file against the provided style and naming guidelines.
-          Highlight any issues and suggest improvements.
+          Highlight any issues and suggest improvements using code diffs.
         files:
           - path: 'https://github.com/mahwy/llm-command-action/blob/main/examples/guidelines/graphql-style.md'
             name: 'GraphQL style guide'
 
-  summarize-discussion:
-    description: Summarizes the discussion in a pull request thread.
+  summarize-pr-comments:
+    description: Summarizes the PR comments.
     instructions:
-      - applyTo: '**/*' # This command doesn't need specific files
-        modifiedOnly: false # This command works with PR discussion, not files
-        prompt: |
-          Summarize the conversation between reviewers and authors in this pull request.
-          Highlight key concerns, decisions, and remaining open questions.
+      - prompt: |
+          Summarize the comments in this pull request at the time of the command execution.
+          Highlight key concerns, decisions, and remaining open questions in bullet points.
 
   update-changelog:
     description:
@@ -49,7 +47,7 @@ commands:
           - path: 'auth-api/CHANGELOG.md'
           - path: 'https://github.com/mahwy/llm-command-action/blob/main/examplesguidelines/changelog-format.md'
             name: 'Changelog formatting template'
-
+  
   review-typescript-code:
     description:
       Reviews TypeScript code for best practices, type safety, and potential
