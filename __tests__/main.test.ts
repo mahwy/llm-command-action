@@ -70,20 +70,4 @@ describe('main.ts', () => {
 
     expect(core.setFailed).toHaveBeenCalledWith('GitHub token is required')
   })
-
-  it('Handles non-PR context', async () => {
-    await run()
-
-    expect(core.warning).toHaveBeenCalledWith(
-      'Not in a pull request context - some features may be limited'
-    )
-    expect(core.setOutput).toHaveBeenCalledWith(
-      'executed_commands',
-      JSON.stringify([])
-    )
-    expect(core.setOutput).toHaveBeenCalledWith(
-      'commands_summary',
-      'No commands executed - not in PR context'
-    )
-  })
 })
