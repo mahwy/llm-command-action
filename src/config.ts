@@ -4,16 +4,19 @@ import * as yaml from 'js-yaml'
 import { LLMCommandsConfig } from './types.js'
 
 export async function loadConfig(
-  workspacePath: string
+  workspacePath: string,
+  configPath?: string
 ): Promise<LLMCommandsConfig> {
-  const configPath = path.join(workspacePath, '.llm', 'commands.yaml')
+  const resolvedConfigPath = configPath
+    ? path.resolve(workspacePath, configPath)
+    : path.join(workspacePath, '.llm-commands.yaml')
 
-  if (!fs.existsSync(configPath)) {
-    throw new Error(`Configuration file not found at ${configPath}`)
+  if (!fs.existsSync(resolvedConfigPath)) {
+    throw new Error(`Configuration file not found at ${resolvedConfigPath}`)
   }
 
   try {
-    const configContent = fs.readFileSync(configPath, 'utf8')
+    const configContent = fs.readFileSync(resolvedConfigPath, 'utf8')
     const config = yaml.load(configContent) as LLMCommandsConfig
 
     if (!config.commands || typeof config.commands !== 'object') {

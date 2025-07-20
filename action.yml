@@ -20,12 +20,16 @@ inputs:
     description: 'GitHub token'
     required: true
     default: ${{ github.token }}
-  command_from_comment:
-    description:
-      'Whether to parse command from PR comment (for comment-triggered
-      workflows)'
+  config_path:
+    description: 'Path to the commands configuration file'
     required: false
-    default: 'false'
+    default: '.llm-commands.yaml'
+  # command_from_comment:
+  #   description:
+  #     'Whether to parse command from PR comment (for comment-triggered
+  #     workflows)'
+  #   required: false
+  #   default: 'false'
 
 # Define your outputs here.
 outputs:

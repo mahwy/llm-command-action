@@ -105,7 +105,8 @@ Make sure to:
 The action expects:
 
 - **inputs.milliseconds** - Currently a placeholder from the template
-- **LLM Commands** - Defined in `.llm/commands.yaml` in consuming repositories
+- **LLM Commands** - Defined in `.llm-commands.yaml` in consuming repositories
+  (configurable via `config_path` input)
 - **Environment Variables** - `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` for LLM
   access
 
