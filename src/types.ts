@@ -4,9 +4,10 @@ export interface CommandConfig {
 }
 
 export interface CommandInstruction {
-  applyTo: string
+  applyTo: string | 'none'
   prompt: string
   files?: FileReference[]
+  modifiedOnly?: boolean // Default: true - only include files modified in the PR
 }
 
 export interface FileReference {
@@ -17,23 +18,6 @@ export interface FileReference {
 export interface LLMCommandsConfig {
   handle?: string
   commands: Record<string, CommandConfig>
-}
-
-export interface GitHubContext {
-  eventName: string
-  payload: Record<string, unknown>
-  repo: {
-    owner: string
-    repo: string
-  }
-  sha: string
-  ref: string
-  workflow: string
-  action: string
-  actor: string
-  job: string
-  runNumber: number
-  runId: number
 }
 
 export interface PullRequestInfo {
@@ -57,3 +41,12 @@ export interface ChangedFile {
   patch?: string
   content?: string
 }
+
+export interface PullRequestComment {
+  author: string
+  body: string
+  isFromLLMAction?: boolean
+  commandName?: string
+}
+
+export type TargetFile = { filename: string; content: string; patch?: string }

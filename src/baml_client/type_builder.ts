@@ -27,11 +27,9 @@ export default class TypeBuilder {
     
     CommandOuputInPullRequest: ClassViewer<'CommandOuputInPullRequest', "pull_request_comment" | "summary">;
     
-    Comment: ClassViewer<'Comment', "author" | "body">;
+    Comment: ClassViewer<'Comment', "author" | "body" | "isFromLLMAction" | "commandName">;
     
-    File: ClassViewer<'File', "name" | "path" | "content">;
-    
-    FileDiff: ClassViewer<'FileDiff', "path" | "diff">;
+    File: ClassViewer<'File', "name" | "path" | "content" | "patch">;
     
     PullRequest: ClassViewer<'PullRequest', "title" | "body" | "comments">;
     
@@ -40,7 +38,7 @@ export default class TypeBuilder {
     constructor() {
         this.tb = new _TypeBuilder({
           classes: new Set([
-            "CommandOuputInPullRequest","Comment","File","FileDiff","PullRequest",
+            "CommandOuputInPullRequest","Comment","File","PullRequest",
           ]),
           enums: new Set([
             
@@ -53,15 +51,11 @@ export default class TypeBuilder {
         ]);
         
         this.Comment = this.tb.classViewer("Comment", [
-          "author","body",
+          "author","body","isFromLLMAction","commandName",
         ]);
         
         this.File = this.tb.classViewer("File", [
-          "name","path","content",
-        ]);
-        
-        this.FileDiff = this.tb.classViewer("FileDiff", [
-          "path","diff",
+          "name","path","content","patch",
         ]);
         
         this.PullRequest = this.tb.classViewer("PullRequest", [

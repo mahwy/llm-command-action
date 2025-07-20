@@ -1,11 +1,14 @@
 import * as core from '@actions/core'
-import * as minimatch from 'minimatch'
+import * as glob from 'glob'
+import * as fs from 'fs'
+import * as path from 'path'
 import { b } from './baml_client/index.js'
 import {
   CommandConfig,
   CommandInstruction,
   ChangedFile,
-  PullRequestInfo
+  PullRequestInfo,
+  TargetFile
 } from './types.js'
 import { GitHubService } from './github.js'
 
@@ -43,18 +46,40 @@ export class CommandExecutor {
     changedFiles: ChangedFile[],
     prInfo: PullRequestInfo
   ): Promise<void> {
-    const targetFiles = this.getMatchingFiles(changedFiles, instruction.applyTo)
-
-    if (targetFiles.length === 0) {
-      core.info(
-        `No files match pattern "${instruction.applyTo}" for command ${commandName}`
+    let targetFiles: TargetFile[] = []
+    const applyTo = instruction.applyTo ?? 'none'
+    if (applyTo != 'none') {
+      const modifiedOnly = instruction.modifiedOnly ?? true
+      targetFiles = await this.getMatchingFiles(
+        applyTo,
+        process.cwd(),
+        modifiedOnly ? changedFiles : undefined
       )
-      return
-    }
 
-    core.info(
-      `Found ${targetFiles.length} matching files for pattern "${instruction.applyTo}"`
-    )
+      if (targetFiles.length === 0) {
+        const noFilesComment = modifiedOnly
+          ? `## 🤖 ${commandName}\n\n${commandConfig.description}\n\n` +
+            `No modified files match the pattern "${applyTo}" in this pull request.`
+          : `No files match pattern "${applyTo}" for command ${commandName}`
+
+        if (modifiedOnly) {
+          await this.githubService.addPullRequestComment(
+            prInfo,
+            noFilesComment,
+            commandName
+          )
+        }
+
+        core.info(
+          `No files match pattern "${applyTo}" for command ${commandName}`
+        )
+        return
+      }
+
+      core.info(
+        `Found ${targetFiles.length} matching files for pattern "${applyTo}"`
+      )
+    }
 
     const referenceFiles = await this.loadReferenceFiles(
       instruction.files || []
@@ -65,13 +90,19 @@ export class CommandExecutor {
     const pullRequest = {
       title: prInfo.title,
       body: prInfo.body,
-      comments: prComments
+      comments: prComments.map((comment) => ({
+        author: comment.author,
+        body: comment.body,
+        isFromLLMAction: comment.isFromLLMAction,
+        commandName: comment.commandName
+      }))
     }
 
     const bamlTargetFiles = targetFiles.map((file) => ({
       name: file.filename,
       path: file.filename,
-      content: file.content || ''
+      content: file.content,
+      patch: file.patch
     }))
 
     try {
@@ -87,7 +118,11 @@ export class CommandExecutor {
         const commentHeader = `## 🤖 ${commandName}\n\n${commandConfig.description}\n\n`
         const fullComment = commentHeader + result.pull_request_comment
 
-        await this.githubService.addPullRequestComment(prInfo, fullComment)
+        await this.githubService.addPullRequestComment(
+          prInfo,
+          fullComment,
+          commandName
+        )
         core.info(`Posted comment for command ${commandName}`)
       }
 
@@ -102,21 +137,116 @@ export class CommandExecutor {
         `**Error:** ${error instanceof Error ? error.message : 'Unknown error'}\n\n` +
         `Please check the action logs for more details.`
 
-      await this.githubService.addPullRequestComment(prInfo, errorComment)
+      await this.githubService.addPullRequestComment(
+        prInfo,
+        errorComment,
+        commandName
+      )
       throw error
     }
   }
 
-  private getMatchingFiles(
-    changedFiles: ChangedFile[],
-    pattern: string
-  ): ChangedFile[] {
-    return changedFiles.filter((file) => {
-      if (pattern === '.' || pattern === '**' || pattern === '**/*') {
-        return true
+  private async getMatchingFiles(
+    pattern: string,
+    baseDir: string = process.cwd(),
+    changedFiles?: ChangedFile[]
+  ): Promise<TargetFile[]> {
+    if (pattern === '') {
+      return []
+    }
+    // Handle special cases for all files
+    if (pattern === '.' || pattern === '**' || pattern === '**/*') {
+      pattern = '**/*'
+    }
+
+    try {
+      let filesToProcess: string[]
+
+      if (changedFiles) {
+        // Filter changed files that match the pattern
+        const changedFilePaths = changedFiles
+          .filter((file) => file.status !== 'removed')
+          .map((file) => file.filename)
+
+        // Use glob to match the pattern against changed files
+        filesToProcess = glob
+          .sync(pattern, {
+            cwd: baseDir,
+            ignore: [
+              '**/node_modules/**',
+              '**/.git/**',
+              '**/dist/**',
+              '**/build/**',
+              '**/*.min.js',
+              '**/*.map'
+            ],
+            nodir: true
+          })
+          .filter((file) => changedFilePaths.includes(file))
+      } else {
+        // Use glob to find all matching files in the repository
+        filesToProcess = glob.sync(pattern, {
+          cwd: baseDir,
+          ignore: [
+            '**/node_modules/**',
+            '**/.git/**',
+            '**/dist/**',
+            '**/build/**',
+            '**/*.min.js',
+            '**/*.map'
+          ],
+          nodir: true
+        })
       }
-      return minimatch.minimatch(file.filename, pattern)
-    })
+
+      const files = []
+      for (const relativePath of filesToProcess) {
+        // If we have changed files, use their content if available
+        if (changedFiles) {
+          const changedFile = changedFiles.find(
+            (file) => file.filename === relativePath
+          )
+          if (changedFile && changedFile.content) {
+            files.push({
+              filename: relativePath,
+              content: changedFile.content,
+              patch: changedFile.patch
+            })
+            continue
+          }
+        }
+
+        // Fall back to reading from filesystem
+        const fullPath = path.join(baseDir, relativePath)
+        try {
+          // Check if file is readable and not too large (limit to 1MB)
+          const stats = fs.statSync(fullPath)
+          if (stats.size > 1024 * 1024) {
+            core.warning(
+              `Skipping large file: ${relativePath} (${stats.size} bytes)`
+            )
+            continue
+          }
+
+          const content = fs.readFileSync(fullPath, 'utf8')
+          files.push({
+            filename: relativePath,
+            content
+          })
+        } catch (error) {
+          core.warning(`Failed to read file ${relativePath}: ${error}`)
+        }
+      }
+
+      const fileSource = changedFiles ? 'modified' : 'all'
+      core.info(
+        `Found ${files.length} ${fileSource} files matching pattern "${pattern}"`
+      )
+      return files
+    } catch (error) {
+      core.error(`Error finding files with pattern "${pattern}": ${error}`)
+      return []
+    }
   }
 
   private async loadReferenceFiles(

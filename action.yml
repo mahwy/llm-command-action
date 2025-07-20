@@ -17,8 +17,8 @@ inputs:
       "review-code,update-docs")'
     required: true
   github_token:
-    description: 'GitHub token for API access'
-    required: false
+    description: 'GitHub token'
+    required: true
     default: ${{ github.token }}
   command_from_comment:
     description:

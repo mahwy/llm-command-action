@@ -56,6 +56,8 @@ export interface CommandOuputInPullRequest {
 export interface Comment {
   author: string
   body: string
+  isFromLLMAction?: boolean | null
+  commandName?: string | null
   
 }
 
@@ -63,12 +65,7 @@ export interface File {
   name?: string | null
   path: string
   content: string
-  
-}
-
-export interface FileDiff {
-  path: string
-  diff: string
+  patch?: string | null
   
 }
 

@@ -1,59 +1,64 @@
-handle: '@llm_command'
+handle: llm_command
+
 commands:
-  review-code:
-    description: 'Reviews code changes for quality, style, and potential issues'
+  review-database-schema:
+    description:
+      Reviews database schema files for consistency, normalization, and naming
+      conventions.
     instructions:
-      - applyTo: '**/*.ts'
+      - applyTo: 'examples/sql-database/**/*.sql'
+        modifiedOnly: true # Default: true - only review files modified in PR
         prompt: |
-          Review this TypeScript file for code quality, potential bugs, and adherence to best practices.
-          Focus on:
-          - Type safety and proper TypeScript usage
-          - Error handling
-          - Code organization and readability
-          - Performance considerations
-          Provide specific, actionable feedback.
-      - applyTo: '**/*.js'
-        prompt: |
-          Review this JavaScript file for code quality, potential bugs, and best practices.
-          Focus on:
-          - Error handling
-          - Code organization and readability
-          - Security considerations
-          - Performance optimizations
-          Provide specific, actionable feedback.
-
-  review-config:
-    description: 'Reviews configuration files for correctness and security'
-    instructions:
-      - applyTo: '**/*.yml'
-        prompt: |
-          Review this YAML configuration file for:
-          - Syntax correctness
-          - Security best practices
-          - Proper structure and organization
-          - Missing or incorrect configurations
-          Provide specific recommendations for improvement.
-      - applyTo: '**/*.json'
-        prompt: |
-          Review this JSON configuration file for:
-          - Valid JSON syntax
-          - Proper structure
-          - Security considerations
-          - Best practices
-          Suggest improvements where applicable.
-
-  test-review:
-    description: 'Reviews test files for completeness and quality'
-    instructions:
-      - applyTo: '**/*.test.*'
-        prompt: |
-          Review this test file for:
-          - Test coverage and completeness
-          - Test structure and organization
-          - Assertion quality
-          - Edge case coverage
-          - Mock usage and test isolation
-          Suggest additional tests or improvements.
+          Review this SQL schema definition. Check for normalization, naming conventions, and indexing.
+          Suggest improvements or raise warnings if there are any anti-patterns.
         files:
-          - path: 'jest.config.js'
-            name: 'Jest configuration'
+          - path: 'guidelines/db-schema-style.md'
+            name: 'Database schema guidelines'
+
+  review-graphql-schema:
+    description:
+      Reviews GraphQL schema files for consistency and best practices.
+    instructions:
+      - applyTo: 'examples/graphql-blog/**/*.graphql'
+        prompt: |
+          Review this GraphQL schema file against the provided style and naming guidelines.
+          Highlight any issues and suggest improvements using code diffs.
+        files:
+          - path: 'https://github.com/mahwy/llm-command-action/blob/main/examples/guidelines/graphql-style.md'
+            name: 'GraphQL style guide'
+
+  summarize-pr-comments:
+    description: Summarizes the PR comments.
+    instructions:
+      - prompt: |
+          Summarize the comments in this pull request at the time of the command execution.
+          Highlight key concerns, decisions, and remaining open questions in bullet points.
+
+  update-changelog:
+    description:
+      Updates or creates the CHANGELOG.md file based on changes in the pull
+      request.
+    instructions:
+      - applyTo: 'examples/auth-api/**/*'
+        prompt: |
+          Based on the code changes and PR title and description, generate or update an entry in CHANGELOG.md.
+          Maintain consistent formatting and group changes by type (e.g., Feature, Fix, Docs).
+        files:
+          - path: 'auth-api/CHANGELOG.md'
+          - path: 'https://github.com/mahwy/llm-command-action/blob/main/examplesguidelines/changelog-format.md'
+            name: 'Changelog formatting template'
+  
+  review-typescript-code:
+    description:
+      Reviews TypeScript code for best practices, type safety, and potential
+      issues.
+    instructions:
+      - applyTo: 'examples/auth-api/**/*.ts'
+        modifiedOnly: true # Only review TypeScript files modified in this PR
+        prompt: |
+          Review this TypeScript code for:
+          - Type safety and proper TypeScript usage
+          - Code structure and organization
+          - Potential bugs or security issues
+          - Best practices and conventions
+          Provide specific suggestions for improvement.

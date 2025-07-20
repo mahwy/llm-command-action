@@ -1,15 +1,15 @@
 import * as core from '@actions/core'
-import { Octokit } from '@octokit/rest'
+import * as github from '@actions/github'
 import * as fs from 'fs'
 import * as path from 'path'
-import { ChangedFile, PullRequestInfo, GitHubContext } from './types.js'
+import { ChangedFile, PullRequestInfo, PullRequestComment } from './types.js'
 
 export class GitHubService {
-  private octokit: Octokit
-  private context: GitHubContext
+  private octokit: ReturnType<typeof github.getOctokit>
+  private context: typeof github.context
 
-  constructor(token: string, context: GitHubContext) {
-    this.octokit = new Octokit({ auth: token })
+  constructor(token: string, context: typeof github.context = github.context) {
+    this.octokit = github.getOctokit(token)
     this.context = context
   }
 
@@ -40,6 +40,8 @@ export class GitHubService {
         repo: this.context.repo.repo,
         pull_number: prNumber
       })
+
+      console.log('PR Data', pr)
 
       return {
         number: pr.number,
@@ -116,7 +118,7 @@ export class GitHubService {
 
   async getPullRequestComments(
     prInfo: PullRequestInfo
-  ): Promise<Array<{ author: string; body: string }>> {
+  ): Promise<PullRequestComment[]> {
     try {
       const { data: comments } = await this.octokit.rest.issues.listComments({
         owner: this.context.repo.owner,
@@ -124,10 +126,19 @@ export class GitHubService {
         issue_number: prInfo.number
       })
 
-      return comments.map((comment) => ({
-        author: comment.user?.login || '',
-        body: comment.body || ''
-      }))
+      return comments.map((comment) => {
+        const body = comment.body || ''
+        const llmActionMarkerMatch = body.match(
+          /<!-- llm-command-action:(.+?) -->/
+        )
+
+        return {
+          author: comment.user?.login || '',
+          body,
+          isFromLLMAction: !!llmActionMarkerMatch,
+          commandName: llmActionMarkerMatch?.[1]
+        }
+      })
     } catch (error) {
       core.warning(`Failed to get PR comments: ${error}`)
       return []
@@ -136,15 +147,31 @@ export class GitHubService {
 
   async addPullRequestComment(
     prInfo: PullRequestInfo,
-    comment: string
+    comment: string,
+    commandName?: string
   ): Promise<void> {
     try {
-      await this.octokit.rest.issues.createComment({
-        owner: this.context.repo.owner,
-        repo: this.context.repo.repo,
-        issue_number: prInfo.number,
-        body: comment
-      })
+      // If commandName is provided, delete previous comments from the same command
+      if (commandName) {
+        await this.deletePreviousCommandComments(prInfo, commandName)
+
+        // Add hidden HTML comment identifier
+        const commentWithId = `<!-- llm-command-action:${commandName} -->\n${comment}`
+
+        await this.octokit.rest.issues.createComment({
+          owner: this.context.repo.owner,
+          repo: this.context.repo.repo,
+          issue_number: prInfo.number,
+          body: commentWithId
+        })
+      } else {
+        await this.octokit.rest.issues.createComment({
+          owner: this.context.repo.owner,
+          repo: this.context.repo.repo,
+          issue_number: prInfo.number,
+          body: comment
+        })
+      }
       core.info(`Posted comment to PR #${prInfo.number}`)
     } catch (error) {
       core.error(`Failed to post comment to PR: ${error}`)
@@ -152,17 +179,74 @@ export class GitHubService {
     }
   }
 
-  async getReferenceFileContent(filePath: string): Promise<string> {
-    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
-      try {
-        const response = await fetch(filePath)
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+  private async deletePreviousCommandComments(
+    prInfo: PullRequestInfo,
+    commandName: string
+  ): Promise<void> {
+    try {
+      const { data: comments } = await this.octokit.rest.issues.listComments({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        issue_number: prInfo.number
+      })
+
+      const commentIdentifier = `<!-- llm-command-action:${commandName} -->`
+
+      for (const comment of comments) {
+        if (comment.body?.includes(commentIdentifier)) {
+          await this.octokit.rest.issues.deleteComment({
+            owner: this.context.repo.owner,
+            repo: this.context.repo.repo,
+            comment_id: comment.id
+          })
+          core.info(`Deleted previous comment from command ${commandName}`)
         }
-        return await response.text()
-      } catch (error) {
-        core.warning(`Failed to fetch remote file ${filePath}: ${error}`)
-        return ''
+      }
+    } catch (error) {
+      core.warning(
+        `Failed to delete previous comments for command ${commandName}: ${error}`
+      )
+    }
+  }
+
+  async getReferenceFileContent(filePath: string): Promise<string> {
+    core.info(`Fetching reference file from: ${filePath}`)
+    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      const githubFileInfo = this.parseGitHubUrl(filePath)
+      if (githubFileInfo) {
+        try {
+          const { data: fileContent } =
+            await this.octokit.rest.repos.getContent({
+              owner: githubFileInfo.owner,
+              repo: githubFileInfo.repo,
+              path: githubFileInfo.path,
+              ref: githubFileInfo.ref
+            })
+
+          if (
+            'content' in fileContent &&
+            typeof fileContent.content === 'string'
+          ) {
+            return Buffer.from(fileContent.content, 'base64').toString('utf8')
+          } else {
+            core.warning(`File ${filePath} is not a regular file`)
+            return ''
+          }
+        } catch (error) {
+          core.warning(`Failed to fetch GitHub file ${filePath}: ${error}`)
+          return ''
+        }
+      } else {
+        try {
+          const response = await fetch(filePath)
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+          }
+          return await response.text()
+        } catch (error) {
+          core.warning(`Failed to fetch remote file ${filePath}: ${error}`)
+          return ''
+        }
       }
     }
 
@@ -178,5 +262,35 @@ export class GitHubService {
 
     core.warning(`Reference file not found: ${filePath}`)
     return ''
+  }
+
+  private parseGitHubUrl(url: string): {
+    owner: string
+    repo: string
+    path: string
+    ref: string
+  } | null {
+    try {
+      const urlObj = new URL(url)
+
+      if (urlObj.hostname !== 'github.com') {
+        return null
+      }
+
+      const pathParts = urlObj.pathname.split('/').filter((part) => part)
+
+      if (pathParts.length < 5 || pathParts[2] !== 'blob') {
+        return null
+      }
+
+      const owner = pathParts[0]
+      const repo = pathParts[1]
+      const ref = pathParts[3]
+      const path = pathParts.slice(4).join('/')
+
+      return { owner, repo, path, ref }
+    } catch {
+      return null
+    }
   }
 }
