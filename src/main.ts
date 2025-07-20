@@ -25,9 +25,12 @@ export async function run(): Promise<void> {
     )
 
     const githubService = new GitHubService(githubToken, github.context)
-    
+
     const config = await loadConfig(process.cwd())
-    const executor = new CommandExecutor(githubService, config['llm-clients'] || [])
+    const executor = new CommandExecutor(
+      githubService,
+      config['llm-clients'] || []
+    )
     core.info(
       `Loaded configuration with ${Object.keys(config.commands).length} commands`
     )
