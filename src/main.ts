@@ -3,7 +3,6 @@ import * as github from '@actions/github'
 import { loadConfig, getCommandsToRun } from './config.js'
 import { GitHubService } from './github.js'
 import { CommandExecutor } from './executor.js'
-
 /**
  * The main function for the action.
  *
@@ -26,9 +25,12 @@ export async function run(): Promise<void> {
     )
 
     const githubService = new GitHubService(githubToken, github.context)
-    const executor = new CommandExecutor(githubService)
 
     const config = await loadConfig(process.cwd())
+    const executor = new CommandExecutor(
+      githubService,
+      config['llm-clients'] || []
+    )
     core.info(
       `Loaded configuration with ${Object.keys(config.commands).length} commands`
     )
