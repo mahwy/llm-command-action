@@ -13,8 +13,8 @@ branding:
 inputs:
   commands:
     description:
-      'Comma-separated list of commands to execute (e.g.
-      "review-code,update-docs")'
+      'Comma-separated or newline-separated list of commands to execute (e.g.
+      "review-code,update-docs" or "review-code\nupdate-docs")'
     required: true
   github_token:
     description: 'GitHub token'

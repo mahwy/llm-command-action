@@ -6,6 +6,15 @@ llm-clients:
       model: gpt-4o-mini
 
 commands:
+  pr-ci-test:
+    description:
+      PR CI test command.
+    instructions:
+      - applyTo: '**/*'
+        modifiedOnly: false
+        prompt: |
+          Provide a short summary of the changes in this PR in bullet points.
+
   review-database-schema:
     description:
       Reviews database schema files for consistency, normalization, and naming
