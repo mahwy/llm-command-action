@@ -20,7 +20,6 @@ commands:
       Reviews GraphQL schema files for consistency and best practices.
     instructions:
       - applyTo: 'examples/graphql-blog/**/*.graphql'
-        modifiedOnly: false # For testing      
         prompt: |
           Review this GraphQL schema file against the provided style and naming guidelines.
           Highlight any issues and suggest improvements using code diffs.
