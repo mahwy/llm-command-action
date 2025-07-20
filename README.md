@@ -45,7 +45,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: LLM Command Action
-        uses: mahwy/llm-command-action@v1
+        uses: mahwy/llm-command-action@main
         with:
           commands: |
             review-sql-schema
