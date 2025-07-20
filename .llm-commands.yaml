@@ -7,8 +7,7 @@ llm-clients:
 
 commands:
   pr-ci-test:
-    description:
-      PR CI test command.
+    description: PR CI test command.
     instructions:
       - applyTo: 'none' # Ignore file changes
         prompt: |
