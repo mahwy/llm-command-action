@@ -47,7 +47,7 @@ commands:
           - path: 'auth-api/CHANGELOG.md'
           - path: 'https://github.com/mahwy/llm-command-action/blob/main/examplesguidelines/changelog-format.md'
             name: 'Changelog formatting template'
-  
+
   review-typescript-code:
     description:
       Reviews TypeScript code for best practices, type safety, and potential

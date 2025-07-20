@@ -4,6 +4,8 @@
 generator target {
     // Valid values: "python/pydantic", "typescript", "ruby/sorbet", "rest/openapi"
     output_type "typescript"
+    
+    module_format "esm"
 
     // Where the generated code will be saved (relative to baml_src/)
     output_dir "../src"

@@ -2,7 +2,7 @@ import * as core from '@actions/core'
 import * as glob from 'glob'
 import * as fs from 'fs'
 import * as path from 'path'
-import { b } from './baml_client/index.js'
+import { b as bamlClient } from './baml_client/async_client.js'
 import {
   CommandConfig,
   CommandInstruction,
@@ -107,7 +107,7 @@ export class CommandExecutor {
 
     try {
       core.info(`Executing LLM function for command ${commandName}`)
-      const result = await b.ExecuteCommandInPullRequest(
+      const result = await bamlClient.ExecuteCommandInPullRequest(
         instruction.prompt,
         bamlTargetFiles,
         pullRequest,
