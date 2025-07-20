@@ -10,10 +10,9 @@ commands:
     description:
       PR CI test command.
     instructions:
-      - applyTo: '**/*'
-        modifiedOnly: false
+      - applyTo: 'none' # Ignore file changes
         prompt: |
-          Provide a short summary of the changes in this PR in bullet points.
+          Provide a short summary of the PR in bullet points.
 
   review-database-schema:
     description:
