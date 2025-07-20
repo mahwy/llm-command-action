@@ -62,6 +62,8 @@ jobs:
           commands: |
             review-graphql-schema
             review-database-schema
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
       - name: Print Output
         id: output

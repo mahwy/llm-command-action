@@ -8,15 +8,22 @@ import {
   CommandInstruction,
   ChangedFile,
   PullRequestInfo,
-  TargetFile
+  TargetFile,
+  LLMClientConfig
 } from './types.js'
 import { GitHubService } from './github.js'
+import { ClientRegistry, Collector } from '@boundaryml/baml'
 
 export class CommandExecutor {
   private githubService: GitHubService
+  private llmClients: LLMClientConfig[]
 
-  constructor(githubService: GitHubService) {
+  constructor(
+    githubService: GitHubService,
+    llmClients: LLMClientConfig[] = []
+  ) {
     this.githubService = githubService
+    this.llmClients = llmClients
   }
 
   async executeCommand(
@@ -107,12 +114,56 @@ export class CommandExecutor {
 
     try {
       core.info(`Executing LLM function for command ${commandName}`)
+      const collector = new Collector('llm-command-action')
+      const clientRegistry = new ClientRegistry()
+
+      // Setup LLM clients from configuration
+      if (this.llmClients.length > 0) {
+        for (let i = 0; i < this.llmClients.length; i++) {
+          const clientConfig = this.llmClients[i]
+          const clientName = `llm-command-action-client-${i}`
+
+          // Resolve environment variables in api_key
+          const options = { ...clientConfig.options }
+          if (options.api_key && options.api_key.startsWith('env.')) {
+            const envVar = options.api_key.substring(4)
+            options.api_key = process.env[envVar]
+          }
+
+          clientRegistry.addLlmClient(
+            clientName,
+            clientConfig.provider,
+            options
+          )
+
+          // Set the first client as primary
+          if (i === 0) {
+            clientRegistry.setPrimary(clientName)
+          }
+        }
+      } else {
+        // Fallback to hardcoded OpenAI client if no configuration provided
+        const provider = 'openai'
+        const apiKey = process.env.OPENAI_API_KEY
+        const model = 'gpt-4o-mini'
+        clientRegistry.addLlmClient('llm-command-action-client', provider, {
+          api_key: apiKey,
+          model
+        })
+        clientRegistry.setPrimary('llm-command-action-client')
+      }
+
       const result = await bamlClient.ExecuteCommandInPullRequest(
         instruction.prompt,
         bamlTargetFiles,
         pullRequest,
-        referenceFiles
+        referenceFiles,
+        {
+          clientRegistry,
+          collector
+        }
       )
+      core.info(`LLM Usage: ${collector.usage}`)
 
       if (result.pull_request_comment) {
         const commentHeader = `## 🤖 ${commandName}\n\n${commandConfig.description}\n\n`

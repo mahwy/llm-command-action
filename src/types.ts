@@ -15,8 +15,18 @@ export interface FileReference {
   name?: string
 }
 
+export interface LLMClientConfig {
+  provider: string
+  options: {
+    api_key?: string
+    model?: string
+    [key: string]: any
+  }
+}
+
 export interface LLMCommandsConfig {
   handle?: string
+  'llm-clients'?: LLMClientConfig[]
   commands: Record<string, CommandConfig>
 }
 

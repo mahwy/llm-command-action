@@ -1,4 +1,9 @@
 handle: llm_command
+llm-clients:
+  - provider: openai
+    options:
+      api_key: env.OPENAI_API_KEY
+      model: gpt-4o-mini
 
 commands:
   review-database-schema:
