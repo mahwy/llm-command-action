@@ -4,6 +4,7 @@ type User {
   email: String!
   posts: [Post!]!
   createdAt: String!
+  updated_at: String!
 }
 
 type Post {
