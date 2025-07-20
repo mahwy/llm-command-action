@@ -14,6 +14,7 @@ export async function run(): Promise<void> {
     const githubToken =
       core.getInput('github_token') || process.env.GITHUB_TOKEN
     const commandFromComment = core.getInput('command_from_comment') === 'true'
+    const configPath = core.getInput('config_path') || '.llm-commands.yaml'
 
     if (!githubToken) {
       throw new Error('GitHub token is required')
@@ -26,7 +27,7 @@ export async function run(): Promise<void> {
 
     const githubService = new GitHubService(githubToken, github.context)
 
-    const config = await loadConfig(process.cwd())
+    const config = await loadConfig(process.cwd(), configPath)
     const executor = new CommandExecutor(
       githubService,
       config['llm-clients'] || []

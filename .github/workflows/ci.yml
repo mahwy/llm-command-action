@@ -60,8 +60,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           commands: |
-            review-graphql-schema
-            review-database-schema
+            pr-ci-test
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 

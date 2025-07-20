@@ -1,11 +1,21 @@
 handle: llm_command
+
+# For provider name and options, see https://docs.boundaryml.com/ref/llm-client-providers/overview
 llm-clients:
+  # Currently, only one client is supported.
   - provider: openai
     options:
       api_key: env.OPENAI_API_KEY
       model: gpt-4o-mini
 
 commands:
+  pr-ci-test:
+    description: PR CI test command.
+    instructions:
+      - applyTo: 'none' # Ignore file changes
+        prompt: |
+          Provide a short summary of the PR in bullet points.
+
   review-database-schema:
     description:
       Reviews database schema files for consistency, normalization, and naming

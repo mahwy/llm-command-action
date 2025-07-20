@@ -34063,13 +34063,14 @@ var loader = {
 };
 var load                = loader.load;
 
-async function loadConfig(workspacePath) {
-    const configPath = path__namespace.join(workspacePath, '.llm', 'commands.yaml');
-    if (!fs__namespace.existsSync(configPath)) {
-        throw new Error(`Configuration file not found at ${configPath}`);
+async function loadConfig(workspacePath, configPath) {
+    const resolvedConfigPath = path__namespace.resolve(workspacePath, configPath)
+        ;
+    if (!fs__namespace.existsSync(resolvedConfigPath)) {
+        throw new Error(`Configuration file not found at ${resolvedConfigPath}`);
     }
     try {
-        const configContent = fs__namespace.readFileSync(configPath, 'utf8');
+        const configContent = fs__namespace.readFileSync(resolvedConfigPath, 'utf8');
         const config = load(configContent);
         if (!config.commands || typeof config.commands !== 'object') {
             throw new Error('Invalid configuration: commands section is required');
@@ -43673,13 +43674,14 @@ async function run() {
         const commandsInput = coreExports.getInput('commands', { required: true });
         const githubToken = coreExports.getInput('github_token') || process.env.GITHUB_TOKEN;
         const commandFromComment = coreExports.getInput('command_from_comment') === 'true';
+        const configPath = coreExports.getInput('config_path') || '.llm-commands.yaml';
         if (!githubToken) {
             throw new Error('GitHub token is required');
         }
         coreExports.info(`Event: ${githubExports.context.eventName}`);
         coreExports.info(`Repository: ${githubExports.context.repo.owner}/${githubExports.context.repo.repo}`);
         const githubService = new GitHubService(githubToken, githubExports.context);
-        const config = await loadConfig(process.cwd());
+        const config = await loadConfig(process.cwd(), configPath);
         const executor = new CommandExecutor(githubService, config['llm-clients'] || []);
         coreExports.info(`Loaded configuration with ${Object.keys(config.commands).length} commands`);
         let requestedCommands;
