@@ -1,0 +1,36 @@
+name: Demo CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'examples/graphql-blog/**/*.graphql'
+  push:
+    branches:
+      - main
+    paths:
+      - 'examples/graphql-blog/**/*.graphql'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  llm-command-action-demo-job:
+    name: LLM Command Action Demo Job
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4
+
+      - name: Review GraphQL Schema
+        uses: ./
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          commands: |
+            review-graphql-schema:
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
