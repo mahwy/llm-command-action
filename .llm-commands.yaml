@@ -2,6 +2,7 @@ handle: llm_command
 
 # For provider name and options, see https://docs.boundaryml.com/ref/llm-client-providers/overview
 llm-clients:
+  # Currently, only one client is supported.
   - provider: openai
     options:
       api_key: env.OPENAI_API_KEY
