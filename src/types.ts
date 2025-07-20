@@ -20,7 +20,7 @@ export interface LLMClientConfig {
   options: {
     api_key?: string
     model?: string
-    [key: string]: any
+    [key: string]: unknown
   }
 }
 
