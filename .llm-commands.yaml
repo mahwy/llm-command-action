@@ -1,4 +1,6 @@
 handle: llm_command
+
+# For provider name and options, see https://docs.boundaryml.com/ref/llm-client-providers/overview
 llm-clients:
   - provider: openai
     options:
