@@ -47,8 +47,6 @@ describe('main.ts', () => {
           return 'test-command'
         case 'github_token':
           return 'test-token'
-        case 'command_from_comment':
-          return 'false'
         default:
           return ''
       }

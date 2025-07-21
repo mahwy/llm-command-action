@@ -13,7 +13,6 @@ export async function run(): Promise<void> {
     const commandsInput = core.getInput('commands', { required: true })
     const githubToken =
       core.getInput('github_token') || process.env.GITHUB_TOKEN
-    const commandFromComment = core.getInput('command_from_comment') === 'true'
     const configPath = core.getInput('config_path') || '.llm-commands.yaml'
 
     if (!githubToken) {
@@ -37,10 +36,20 @@ export async function run(): Promise<void> {
     )
 
     let requestedCommands: string[]
-    if (commandFromComment && github.context.eventName === 'issue_comment') {
+    if (github.context.eventName === 'issue_comment') {
+      // Validate that this is a PR comment, not an issue comment
+      const payload = github.context.payload as {
+        issue?: { pull_request?: object }
+        comment?: { body: string }
+      }
+
+      if (!payload.issue?.pull_request) {
+        core.info('Comment is not on a pull request, skipping')
+        return
+      }
+
       requestedCommands = parseCommandFromComment(
-        (github.context.payload as { comment?: { body: string } }).comment
-          ?.body || '',
+        payload.comment?.body || '',
         config.handle
       )
     } else {

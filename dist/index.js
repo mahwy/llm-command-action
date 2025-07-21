@@ -43673,7 +43673,6 @@ async function run() {
     try {
         const commandsInput = coreExports.getInput('commands', { required: true });
         const githubToken = coreExports.getInput('github_token') || process.env.GITHUB_TOKEN;
-        const commandFromComment = coreExports.getInput('command_from_comment') === 'true';
         const configPath = coreExports.getInput('config_path') || '.llm-commands.yaml';
         if (!githubToken) {
             throw new Error('GitHub token is required');
@@ -43685,9 +43684,14 @@ async function run() {
         const executor = new CommandExecutor(githubService, config['llm-clients'] || []);
         coreExports.info(`Loaded configuration with ${Object.keys(config.commands).length} commands`);
         let requestedCommands;
-        if (commandFromComment && githubExports.context.eventName === 'issue_comment') {
-            requestedCommands = parseCommandFromComment(githubExports.context.payload.comment
-                ?.body || '', config.handle);
+        if (githubExports.context.eventName === 'issue_comment') {
+            // Validate that this is a PR comment, not an issue comment
+            const payload = githubExports.context.payload;
+            if (!payload.issue?.pull_request) {
+                coreExports.info('Comment is not on a pull request, skipping');
+                return;
+            }
+            requestedCommands = parseCommandFromComment(payload.comment?.body || '', config.handle);
         }
         else {
             requestedCommands = commandsInput
