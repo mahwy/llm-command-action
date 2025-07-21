@@ -30,20 +30,48 @@ export class CommandExecutor {
     commandName: string,
     commandConfig: CommandConfig,
     changedFiles: ChangedFile[],
-    prInfo: PullRequestInfo
-  ): Promise<void> {
+    prInfo: PullRequestInfo,
+    otherCommandOutputs: Array<{
+      command: string
+      pull_request_comment: string
+      summary: string
+    }> = []
+  ): Promise<{
+    command: string
+    pull_request_comment: string
+    summary: string
+  } | null> {
     core.info(`Executing command: ${commandName}`)
     core.info(`Description: ${commandConfig.description}`)
 
+    let combinedComment = ''
+    let combinedSummary = ''
+
     for (const instruction of commandConfig.instructions) {
-      await this.executeInstruction(
+      const result = await this.executeInstruction(
         commandName,
         commandConfig,
         instruction,
         changedFiles,
-        prInfo
+        prInfo,
+        otherCommandOutputs
       )
+
+      if (result) {
+        combinedComment += result.pull_request_comment + '\n\n'
+        combinedSummary += result.summary + ' '
+      }
     }
+
+    if (combinedComment || combinedSummary) {
+      return {
+        command: commandName,
+        pull_request_comment: combinedComment.trim(),
+        summary: combinedSummary.trim()
+      }
+    }
+
+    return null
   }
 
   private async executeInstruction(
@@ -51,8 +79,17 @@ export class CommandExecutor {
     commandConfig: CommandConfig,
     instruction: CommandInstruction,
     changedFiles: ChangedFile[],
-    prInfo: PullRequestInfo
-  ): Promise<void> {
+    prInfo: PullRequestInfo,
+    otherCommandOutputs: Array<{
+      command: string
+      pull_request_comment: string
+      summary: string
+    }> = []
+  ): Promise<{
+    command: string
+    pull_request_comment: string
+    summary: string
+  } | null> {
     let targetFiles: TargetFile[] = []
     const applyTo = instruction.applyTo ?? 'none'
     if (applyTo != 'none') {
@@ -80,7 +117,7 @@ export class CommandExecutor {
         core.info(
           `No files match pattern "${applyTo}" for command ${commandName}`
         )
-        return
+        return null
       }
 
       core.info(
@@ -158,6 +195,7 @@ export class CommandExecutor {
         bamlTargetFiles,
         pullRequest,
         referenceFiles,
+        otherCommandOutputs,
         {
           clientRegistry,
           collector
@@ -179,6 +217,8 @@ export class CommandExecutor {
 
       core.setOutput(`${commandName}_summary`, result.summary)
       core.setOutput(`${commandName}_comment`, result.pull_request_comment)
+
+      return result
     } catch (error) {
       core.error(`Failed to execute command ${commandName}: ${error}`)
 

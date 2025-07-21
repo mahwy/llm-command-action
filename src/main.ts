@@ -120,16 +120,27 @@ export async function run(): Promise<void> {
 
     const executedCommands: string[] = []
     const summaries: string[] = []
+    const commandOutputs: Array<{
+      command: string
+      pull_request_comment: string
+      summary: string
+    }> = []
 
     for (const commandName of commandsToRun) {
       try {
         const commandConfig = config.commands[commandName]
-        await executor.executeCommand(
+        const commandOutput = await executor.executeCommand(
           commandName,
           commandConfig,
           changedFiles,
-          prInfo
+          prInfo,
+          commandOutputs
         )
+
+        if (commandOutput) {
+          commandOutputs.push(commandOutput)
+        }
+
         executedCommands.push(commandName)
         summaries.push(`✅ ${commandName}: ${commandConfig.description}`)
         core.info(`Successfully executed command: ${commandName}`)
