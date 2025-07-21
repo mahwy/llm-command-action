@@ -34084,16 +34084,29 @@ async function loadConfig(workspacePath, configPath) {
         throw new Error('Failed to parse configuration file');
     }
 }
-function getCommandsToRun(config, requestedCommands) {
+function getCommandsToRun(config, requestedCommands, fromComment = false) {
     const availableCommands = Object.keys(config.commands);
     const commandsToRun = [];
     for (const cmd of requestedCommands) {
         const trimmedCmd = cmd.trim();
         if (trimmedCmd && availableCommands.includes(trimmedCmd)) {
+            const commandConfig = config.commands[trimmedCmd];
+            // If command is from comment, check if it's allowed (default: true)
+            if (fromComment && commandConfig.canExecuteFromComment === false) {
+                continue;
+            }
             commandsToRun.push(trimmedCmd);
         }
     }
     return commandsToRun;
+}
+function getCommentEnabledCommands(config) {
+    return Object.entries(config.commands)
+        .filter(([, commandConfig]) => commandConfig.canExecuteFromComment !== false)
+        .map(([name, commandConfig]) => ({
+        name,
+        description: commandConfig.description
+    }));
 }
 
 class GitHubService {
@@ -43703,7 +43716,8 @@ async function run() {
             coreExports.warning('No commands specified or found in comment');
             return;
         }
-        const commandsToRun = getCommandsToRun(config, requestedCommands);
+        const fromComment = githubExports.context.eventName === 'issue_comment';
+        const commandsToRun = getCommandsToRun(config, requestedCommands, fromComment);
         if (commandsToRun.length === 0) {
             coreExports.warning(`No valid commands found. Available commands: ${Object.keys(config.commands).join(', ')}`);
             return;
@@ -43715,6 +43729,14 @@ async function run() {
             coreExports.setOutput('executed_commands', JSON.stringify([]));
             coreExports.setOutput('commands_summary', 'No commands executed - not in PR context');
             return;
+        }
+        // Auto-post available slash commands on PR open (not for comment events)
+        if (githubExports.context.eventName === 'pull_request' &&
+            githubExports.context.payload.action === 'opened') {
+            const commentEnabledCommands = getCommentEnabledCommands(config);
+            if (commentEnabledCommands.length > 0) {
+                await postAvailableCommandsComment(githubService, commentEnabledCommands, prInfo, config.handle);
+            }
         }
         const changedFiles = await githubService.getChangedFiles(prInfo);
         coreExports.info(`Found ${changedFiles.length} changed files in PR #${prInfo.number}`);
@@ -43766,6 +43788,32 @@ function parseCommandFromComment(commentBody, handle) {
         commands.push(match[1]);
     }
     return commands;
+}
+async function postAvailableCommandsComment(githubService, commands, prInfo, handle) {
+    const slashCommands = commands
+        .map((cmd) => `- \`/${cmd.name}\` - ${cmd.description}`)
+        .join('\n');
+    const handleExample = handle
+        ? `\`${handle} "your custom request"\``
+        : '`@llm_command "your custom request"`';
+    const commentBody = `## 🤖 LLM Commands Available
+
+You can trigger the following commands by commenting on this PR:
+
+**Slash Commands:**
+${slashCommands}
+
+**Custom Handle:**
+- ${handleExample}
+
+Simply comment with any of the above formats to execute the corresponding command!`;
+    try {
+        await githubService.addPullRequestComment(prInfo, commentBody);
+        coreExports.info(`Posted available commands comment with ${commands.length} commands`);
+    }
+    catch (error) {
+        coreExports.warning(`Failed to post available commands comment: ${error}`);
+    }
 }
 
 /**
