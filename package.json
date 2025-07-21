@@ -39,7 +39,7 @@
   "dependencies": {
     "@actions/core": "^1.11.1",
     "@actions/github": "^6.0.1",
-    "@boundaryml/baml": "^0.201.0",
+    "@boundaryml/baml": "^0.202.1",
     "@types/glob": "^8.1.0",
     "@types/js-yaml": "^4.0.9",
     "@types/minimatch": "^5.1.2",
