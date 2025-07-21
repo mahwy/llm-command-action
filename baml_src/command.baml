@@ -1,5 +1,8 @@
 
 class CommandOuputInPullRequest {
+  command string @description(#"
+    The name of the command that generated this output.
+  "#)
   pull_request_comment string @description(#"
     A comment to add to the pull request as a response to the command.
   "#)
@@ -34,14 +37,14 @@ class File {
 
 
 
-function ExecuteCommandInPullRequest(inputPrompt: string, targetFiles: File[], pullRequest: PullRequest, referenceFiles: File[]) -> CommandOuputInPullRequest {
+function ExecuteCommandInPullRequest(inputPrompt: string, targetFiles: File[], pullRequest: PullRequest, referenceFiles: File[], otherCommandOutputs: CommandOuputInPullRequest[]) -> CommandOuputInPullRequest {
   // Specify a client as provider/model-name
   // you can use custom LLM params with a custom client name from clients.baml like "client CustomHaiku"
   client "openai/gpt-4o" // Set OPENAI_API_KEY to use this client.
   prompt #"
 
     {{ _.role("system")}}
-    Execute a given prompt for given target files and a pull request and return the ouput response.
+    Execute a given prompt for given target files and a pull request and return the ouput response. Refer to the pull requeest metadata, reference files and other command outputs for context.
 
     {{ _.role("user")}}
 
@@ -122,6 +125,24 @@ function ExecuteCommandInPullRequest(inputPrompt: string, targetFiles: File[], p
     </file>
     {% endfor %}
     </referenceFiles>
+
+    {% if otherCommandOutputs %}
+    <otherCommandOutputs>
+    {% for o in otherCommandOutputs %}
+    <commandOutput>
+    <command>
+    {{o.command}}
+    </command>
+    <summary>
+    {{o.summary}}
+    </summary>
+    <pullRequestComment>
+    {{o.pull_request_comment}}
+    </pullRequestComment>    
+    </commandOutput>
+    {% endfor %}
+    </otherCommandOutputs>
+    {% endif %}
 
     {{ ctx.output_format }}
   "#

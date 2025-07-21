@@ -42,6 +42,7 @@ export interface StreamState<T> {
 
 export namespace partial_types {
   export interface CommandOuputInPullRequest {
+    command?: string | null
     pull_request_comment?: string | null
     summary?: string | null
   }

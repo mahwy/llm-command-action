@@ -52,6 +52,7 @@ export function get_checks<CheckName extends string>(
   return Object.values(checks)
 }
 export interface CommandOuputInPullRequest {
+  command: string
   pull_request_comment: string
   summary: string
 }

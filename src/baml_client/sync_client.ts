@@ -119,6 +119,7 @@ export class BamlSyncClient {
     targetFiles: types.File[],
     pullRequest: types.PullRequest,
     referenceFiles: types.File[],
+    otherCommandOutputs: types.CommandOuputInPullRequest[],
     __baml_options__?: BamlCallOptions
   ): types.CommandOuputInPullRequest {
     try {
@@ -143,7 +144,8 @@ export class BamlSyncClient {
           inputPrompt: inputPrompt,
           targetFiles: targetFiles,
           pullRequest: pullRequest,
-          referenceFiles: referenceFiles
+          referenceFiles: referenceFiles,
+          otherCommandOutputs: otherCommandOutputs
         },
         this.ctxManager.cloneContext(),
         options.tb?.__tb(),

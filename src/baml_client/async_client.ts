@@ -115,6 +115,7 @@ export class BamlAsyncClient {
     targetFiles: types.File[],
     pullRequest: types.PullRequest,
     referenceFiles: types.File[],
+    otherCommandOutputs: types.CommandOuputInPullRequest[],
     __baml_options__?: BamlCallOptions
   ): Promise<types.CommandOuputInPullRequest> {
     try {
@@ -139,7 +140,8 @@ export class BamlAsyncClient {
           inputPrompt: inputPrompt,
           targetFiles: targetFiles,
           pullRequest: pullRequest,
-          referenceFiles: referenceFiles
+          referenceFiles: referenceFiles,
+          otherCommandOutputs: otherCommandOutputs
         },
         this.ctxManager.cloneContext(),
         options.tb?.__tb(),
@@ -174,6 +176,7 @@ class BamlStreamClient {
     targetFiles: types.File[],
     pullRequest: types.PullRequest,
     referenceFiles: types.File[],
+    otherCommandOutputs: types.CommandOuputInPullRequest[],
     __baml_options__?: {
       tb?: TypeBuilder
       clientRegistry?: ClientRegistry
@@ -206,7 +209,8 @@ class BamlStreamClient {
           inputPrompt: inputPrompt,
           targetFiles: targetFiles,
           pullRequest: pullRequest,
-          referenceFiles: referenceFiles
+          referenceFiles: referenceFiles,
+          otherCommandOutputs: otherCommandOutputs
         },
         undefined,
         this.ctxManager.cloneContext(),

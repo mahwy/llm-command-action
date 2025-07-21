@@ -33,7 +33,7 @@ export default class TypeBuilder {
 
   CommandOuputInPullRequest: ClassViewer<
     'CommandOuputInPullRequest',
-    'pull_request_comment' | 'summary'
+    'command' | 'pull_request_comment' | 'summary'
   >
 
   Comment: ClassViewer<
@@ -59,7 +59,7 @@ export default class TypeBuilder {
 
     this.CommandOuputInPullRequest = this.tb.classViewer(
       'CommandOuputInPullRequest',
-      ['pull_request_comment', 'summary']
+      ['command', 'pull_request_comment', 'summary']
     )
 
     this.Comment = this.tb.classViewer('Comment', [

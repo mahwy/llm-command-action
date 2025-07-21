@@ -53,6 +53,7 @@ export class HttpRequest {
     targetFiles: types.File[],
     pullRequest: types.PullRequest,
     referenceFiles: types.File[],
+    otherCommandOutputs: types.CommandOuputInPullRequest[],
     __baml_options__?: BamlCallOptions
   ): HTTPRequest {
     try {
@@ -71,7 +72,8 @@ export class HttpRequest {
           inputPrompt: inputPrompt,
           targetFiles: targetFiles,
           pullRequest: pullRequest,
-          referenceFiles: referenceFiles
+          referenceFiles: referenceFiles,
+          otherCommandOutputs: otherCommandOutputs
         },
         this.ctxManager.cloneContext(),
         __baml_options__?.tb?.__tb(),
@@ -96,6 +98,7 @@ export class HttpStreamRequest {
     targetFiles: types.File[],
     pullRequest: types.PullRequest,
     referenceFiles: types.File[],
+    otherCommandOutputs: types.CommandOuputInPullRequest[],
     __baml_options__?: BamlCallOptions
   ): HTTPRequest {
     try {
@@ -114,7 +117,8 @@ export class HttpStreamRequest {
           inputPrompt: inputPrompt,
           targetFiles: targetFiles,
           pullRequest: pullRequest,
-          referenceFiles: referenceFiles
+          referenceFiles: referenceFiles,
+          otherCommandOutputs: otherCommandOutputs
         },
         this.ctxManager.cloneContext(),
         __baml_options__?.tb?.__tb(),

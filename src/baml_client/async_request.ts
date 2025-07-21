@@ -53,6 +53,7 @@ export class AsyncHttpRequest {
     targetFiles: types.File[],
     pullRequest: types.PullRequest,
     referenceFiles: types.File[],
+    otherCommandOutputs: types.CommandOuputInPullRequest[],
     __baml_options__?: BamlCallOptions
   ): Promise<HTTPRequest> {
     try {
@@ -71,7 +72,8 @@ export class AsyncHttpRequest {
           inputPrompt: inputPrompt,
           targetFiles: targetFiles,
           pullRequest: pullRequest,
-          referenceFiles: referenceFiles
+          referenceFiles: referenceFiles,
+          otherCommandOutputs: otherCommandOutputs
         },
         this.ctxManager.cloneContext(),
         __baml_options__?.tb?.__tb(),
@@ -96,6 +98,7 @@ export class AsyncHttpStreamRequest {
     targetFiles: types.File[],
     pullRequest: types.PullRequest,
     referenceFiles: types.File[],
+    otherCommandOutputs: types.CommandOuputInPullRequest[],
     __baml_options__?: BamlCallOptions
   ): Promise<HTTPRequest> {
     try {
@@ -114,7 +117,8 @@ export class AsyncHttpStreamRequest {
           inputPrompt: inputPrompt,
           targetFiles: targetFiles,
           pullRequest: pullRequest,
-          referenceFiles: referenceFiles
+          referenceFiles: referenceFiles,
+          otherCommandOutputs: otherCommandOutputs
         },
         this.ctxManager.cloneContext(),
         __baml_options__?.tb?.__tb(),
