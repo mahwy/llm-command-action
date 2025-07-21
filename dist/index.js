@@ -43474,9 +43474,11 @@ const b = new BamlAsyncClient(DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOI
 class CommandExecutor {
     githubService;
     llmClients;
-    constructor(githubService, llmClients = []) {
+    debug;
+    constructor(githubService, llmClients = [], debug = false) {
         this.githubService = githubService;
         this.llmClients = llmClients;
+        this.debug = debug;
     }
     async executeCommand(commandName, commandConfig, changedFiles, prInfo, otherCommandOutputs = []) {
         coreExports.info(`Executing command: ${commandName}`);
@@ -43576,7 +43578,12 @@ class CommandExecutor {
             coreExports.info(`LLM Usage: ${collector.usage}`);
             if (result.pull_request_comment) {
                 const commentHeader = `## 🤖 ${commandName}\n\n${commandConfig.description}\n\n`;
-                const fullComment = commentHeader + result.pull_request_comment;
+                let fullComment = commentHeader + result.pull_request_comment;
+                // Add debug information if enabled
+                if (this.debug) {
+                    const debugInfo = `\n\n<!-- llm-command-action:debug\nToken Usage: ${collector.usage}\nCommand: ${commandName}\nTimestamp: ${new Date().toISOString()}\n-->`;
+                    fullComment += debugInfo;
+                }
                 await this.githubService.addPullRequestComment(prInfo, fullComment, commandName);
                 coreExports.info(`Posted comment for command ${commandName}`);
             }
@@ -43706,6 +43713,7 @@ async function run() {
         const commandsInput = coreExports.getInput('commands', { required: true });
         const githubToken = coreExports.getInput('github_token') || process.env.GITHUB_TOKEN;
         const configPath = coreExports.getInput('config_path') || '.llm-commands.yaml';
+        const debug = coreExports.getInput('debug') === 'true';
         if (!githubToken) {
             throw new Error('GitHub token is required');
         }
@@ -43713,7 +43721,7 @@ async function run() {
         coreExports.info(`Repository: ${githubExports.context.repo.owner}/${githubExports.context.repo.repo}`);
         const githubService = new GitHubService(githubToken, githubExports.context);
         const config = await loadConfig(process.cwd(), configPath);
-        const executor = new CommandExecutor(githubService, config['llm-clients'] || []);
+        const executor = new CommandExecutor(githubService, config['llm-clients'] || [], debug);
         coreExports.info(`Loaded configuration with ${Object.keys(config.commands).length} commands`);
         let requestedCommands;
         if (githubExports.context.eventName === 'issue_comment') {
