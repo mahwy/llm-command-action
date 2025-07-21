@@ -17,13 +17,16 @@ import { ClientRegistry, Collector } from '@boundaryml/baml'
 export class CommandExecutor {
   private githubService: GitHubService
   private llmClients: LLMClientConfig[]
+  private debug: boolean
 
   constructor(
     githubService: GitHubService,
-    llmClients: LLMClientConfig[] = []
+    llmClients: LLMClientConfig[] = [],
+    debug: boolean = false
   ) {
     this.githubService = githubService
     this.llmClients = llmClients
+    this.debug = debug
   }
 
   async executeCommand(
@@ -205,7 +208,13 @@ export class CommandExecutor {
 
       if (result.pull_request_comment) {
         const commentHeader = `## 🤖 ${commandName}\n\n${commandConfig.description}\n\n`
-        const fullComment = commentHeader + result.pull_request_comment
+        let fullComment = commentHeader + result.pull_request_comment
+
+        // Add debug information if enabled
+        if (this.debug) {
+          const debugInfo = `\n\n<!-- llm-command-action:debug\nToken Usage: ${collector.usage}\nCommand: ${commandName}\nTimestamp: ${new Date().toISOString()}\n-->`
+          fullComment += debugInfo
+        }
 
         await this.githubService.addPullRequestComment(
           prInfo,
