@@ -200,7 +200,6 @@ jobs:
           commands: |
             review-graphql-schema
             update-changelog
-          command_from_comment: true
 ```
 
 > The action will parse comments like `/review_graphql_schema` or

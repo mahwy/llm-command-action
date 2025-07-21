@@ -1,6 +1,7 @@
 export interface CommandConfig {
   description: string
   instructions: CommandInstruction[]
+  canExecuteFromComment?: boolean // Default: true - whether command can be triggered via PR comment
 }
 
 export interface CommandInstruction {

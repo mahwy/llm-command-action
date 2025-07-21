@@ -1,8 +1,13 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import { loadConfig, getCommandsToRun } from './config.js'
+import {
+  loadConfig,
+  getCommandsToRun,
+  getCommentEnabledCommands
+} from './config.js'
 import { GitHubService } from './github.js'
 import { CommandExecutor } from './executor.js'
+import { PullRequestInfo } from './types.js'
 /**
  * The main function for the action.
  *
@@ -13,7 +18,6 @@ export async function run(): Promise<void> {
     const commandsInput = core.getInput('commands', { required: true })
     const githubToken =
       core.getInput('github_token') || process.env.GITHUB_TOKEN
-    const commandFromComment = core.getInput('command_from_comment') === 'true'
     const configPath = core.getInput('config_path') || '.llm-commands.yaml'
 
     if (!githubToken) {
@@ -37,10 +41,20 @@ export async function run(): Promise<void> {
     )
 
     let requestedCommands: string[]
-    if (commandFromComment && github.context.eventName === 'issue_comment') {
+    if (github.context.eventName === 'issue_comment') {
+      // Validate that this is a PR comment, not an issue comment
+      const payload = github.context.payload as {
+        issue?: { pull_request?: object }
+        comment?: { body: string }
+      }
+
+      if (!payload.issue?.pull_request) {
+        core.info('Comment is not on a pull request, skipping')
+        return
+      }
+
       requestedCommands = parseCommandFromComment(
-        (github.context.payload as { comment?: { body: string } }).comment
-          ?.body || '',
+        payload.comment?.body || '',
         config.handle
       )
     } else {
@@ -55,7 +69,12 @@ export async function run(): Promise<void> {
       return
     }
 
-    const commandsToRun = getCommandsToRun(config, requestedCommands)
+    const fromComment = github.context.eventName === 'issue_comment'
+    const commandsToRun = getCommandsToRun(
+      config,
+      requestedCommands,
+      fromComment
+    )
     if (commandsToRun.length === 0) {
       core.warning(
         `No valid commands found. Available commands: ${Object.keys(config.commands).join(', ')}`
@@ -76,6 +95,22 @@ export async function run(): Promise<void> {
         'No commands executed - not in PR context'
       )
       return
+    }
+
+    // Auto-post available slash commands on PR open (not for comment events)
+    if (
+      github.context.eventName === 'pull_request' &&
+      github.context.payload.action === 'opened'
+    ) {
+      const commentEnabledCommands = getCommentEnabledCommands(config)
+      if (commentEnabledCommands.length > 0) {
+        await postAvailableCommandsComment(
+          githubService,
+          commentEnabledCommands,
+          prInfo,
+          config.handle
+        )
+      }
     }
 
     const changedFiles = await githubService.getChangedFiles(prInfo)
@@ -149,4 +184,40 @@ function parseCommandFromComment(
   }
 
   return commands
+}
+
+async function postAvailableCommandsComment(
+  githubService: GitHubService,
+  commands: Array<{ name: string; description: string }>,
+  prInfo: PullRequestInfo,
+  handle?: string
+): Promise<void> {
+  const slashCommands = commands
+    .map((cmd) => `- \`/${cmd.name}\` - ${cmd.description}`)
+    .join('\n')
+
+  const handleExample = handle
+    ? `\`${handle} "your custom request"\``
+    : '`@llm_command "your custom request"`'
+
+  const commentBody = `## 🤖 LLM Commands Available
+
+You can trigger the following commands by commenting on this PR:
+
+**Slash Commands:**
+${slashCommands}
+
+**Custom Handle:**
+- ${handleExample}
+
+Simply comment with any of the above formats to execute the corresponding command!`
+
+  try {
+    await githubService.addPullRequestComment(prInfo, commentBody)
+    core.info(
+      `Posted available commands comment with ${commands.length} commands`
+    )
+  } catch (error) {
+    core.warning(`Failed to post available commands comment: ${error}`)
+  }
 }
