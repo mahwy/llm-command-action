@@ -43683,7 +43683,7 @@ class CommandExecutor {
             coreExports.info(`Found ${targetFiles.length} matching files for pattern "${applyTo}"`);
         }
         // Load reference files from instruction configuration
-        let referenceFiles = await this.loadReferenceFiles(instruction.files || []);
+        const referenceFiles = await this.loadReferenceFiles(instruction.files || []);
         // Track already loaded file paths to avoid duplicates
         const loadedFilePaths = new Set(referenceFiles.map((f) => f.path));
         // Load additional files from execution plan if available

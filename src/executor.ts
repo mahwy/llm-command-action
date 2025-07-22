@@ -253,7 +253,9 @@ export class CommandExecutor {
     }
 
     // Load reference files from instruction configuration
-    let referenceFiles = await this.loadReferenceFiles(instruction.files || [])
+    const referenceFiles = await this.loadReferenceFiles(
+      instruction.files || []
+    )
 
     // Track already loaded file paths to avoid duplicates
     const loadedFilePaths = new Set(referenceFiles.map((f) => f.path))
