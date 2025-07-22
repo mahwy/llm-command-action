@@ -141,13 +141,11 @@ llm-clients:
     options:
       api_key: env.OPENAI_API_KEY
       model: gpt-4.1
-    description: "High-capability model for executing command instructions"
   small:
     provider: openai
     options:
       api_key: env.OPENAI_API_KEY
       model: gpt-4.1-mini
-    description: "Lightweight model for preprocessing and coordination tasks"
 
 commands:
   review-database-schema:
