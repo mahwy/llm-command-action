@@ -139,9 +139,7 @@ export class CommandExecutor {
       body: prInfo.body,
       comments: prComments.map((comment) => ({
         author: comment.author,
-        body: comment.body,
-        isFromLLMAction: comment.isFromLLMAction,
-        commandName: comment.commandName
+        body: comment.body
       }))
     }
 

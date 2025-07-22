@@ -56,8 +56,6 @@ export interface ChangedFile {
 export interface PullRequestComment {
   author: string
   body: string
-  isFromLLMAction?: boolean
-  commandName?: string
 }
 
 export type TargetFile = { filename: string; content: string; patch?: string }
