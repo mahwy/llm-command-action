@@ -24,12 +24,10 @@ inputs:
     description: 'Path to the commands configuration file'
     required: false
     default: '.llm-commands.yaml'
-  # command_from_comment:
-  #   description:
-  #     'Whether to parse command from PR comment (for comment-triggered
-  #     workflows)'
-  #   required: false
-  #   default: 'false'
+  debug:
+    description: 'Include debug information such as token usage in PR comments'
+    required: false
+    default: 'false'
 
 # Define your outputs here.
 outputs:

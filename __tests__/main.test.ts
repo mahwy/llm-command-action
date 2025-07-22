@@ -24,7 +24,8 @@ jest.unstable_mockModule('@actions/github', () => ({
 
 jest.unstable_mockModule('../src/config.js', () => ({
   loadConfig: jest.fn(),
-  getCommandsToRun: jest.fn()
+  getCommandsToRun: jest.fn(),
+  getCommentEnabledCommands: jest.fn()
 }))
 
 jest.unstable_mockModule('../src/github.js', () => ({
@@ -47,8 +48,6 @@ describe('main.ts', () => {
           return 'test-command'
         case 'github_token':
           return 'test-token'
-        case 'command_from_comment':
-          return 'false'
         default:
           return ''
       }

@@ -124,19 +124,18 @@ export class GitHubService {
         issue_number: prInfo.number
       })
 
-      return comments.map((comment) => {
-        const body = comment.body || ''
-        const llmActionMarkerMatch = body.match(
-          /<!-- llm-command-action:(.+?) -->/
+      return comments
+        .filter(
+          (comment) =>
+            !!comment.body?.match(/<!-- llm-command-action:(.+?) -->/)
         )
-
-        return {
-          author: comment.user?.login || '',
-          body,
-          isFromLLMAction: !!llmActionMarkerMatch,
-          commandName: llmActionMarkerMatch?.[1]
-        }
-      })
+        .map((comment) => {
+          const body = comment.body || ''
+          return {
+            author: comment.user?.login || '',
+            body
+          }
+        })
     } catch (error) {
       core.warning(`Failed to get PR comments: ${error}`)
       return []

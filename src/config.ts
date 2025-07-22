@@ -34,7 +34,8 @@ export async function loadConfig(
 
 export function getCommandsToRun(
   config: LLMCommandsConfig,
-  requestedCommands: string[]
+  requestedCommands: string[],
+  fromComment = false
 ): string[] {
   const availableCommands = Object.keys(config.commands)
   const commandsToRun: string[] = []
@@ -42,9 +43,27 @@ export function getCommandsToRun(
   for (const cmd of requestedCommands) {
     const trimmedCmd = cmd.trim()
     if (trimmedCmd && availableCommands.includes(trimmedCmd)) {
+      const commandConfig = config.commands[trimmedCmd]
+      // If command is from comment, check if it's allowed (default: true)
+      if (fromComment && commandConfig.canExecuteFromComment === false) {
+        continue
+      }
       commandsToRun.push(trimmedCmd)
     }
   }
 
   return commandsToRun
+}
+
+export function getCommentEnabledCommands(
+  config: LLMCommandsConfig
+): Array<{ name: string; description: string }> {
+  return Object.entries(config.commands)
+    .filter(
+      ([, commandConfig]) => commandConfig.canExecuteFromComment !== false
+    )
+    .map(([name, commandConfig]) => ({
+      name,
+      description: commandConfig.description
+    }))
 }

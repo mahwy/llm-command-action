@@ -9,40 +9,187 @@ import {
   ChangedFile,
   PullRequestInfo,
   TargetFile,
-  LLMClientConfig
+  LLMClientsConfig
 } from './types.js'
 import { GitHubService } from './github.js'
 import { ClientRegistry, Collector } from '@boundaryml/baml'
 
 export class CommandExecutor {
   private githubService: GitHubService
-  private llmClients: LLMClientConfig[]
+  private llmClients: LLMClientsConfig
+  private debug: boolean
 
   constructor(
     githubService: GitHubService,
-    llmClients: LLMClientConfig[] = []
+    llmClients: LLMClientsConfig,
+    debug: boolean = false
   ) {
     this.githubService = githubService
     this.llmClients = llmClients
+    this.debug = debug
   }
 
   async executeCommand(
     commandName: string,
     commandConfig: CommandConfig,
     changedFiles: ChangedFile[],
-    prInfo: PullRequestInfo
-  ): Promise<void> {
+    prInfo: PullRequestInfo,
+    otherCommandOutputs: Array<{
+      command: string
+      pull_request_comment: string
+      summary: string
+    }> = [],
+    executionPlan?: {
+      loadFiles: Array<{
+        reason: string
+        fullContent: boolean
+        path: string
+      }>
+      loadCommandOutputs: Array<{ reason: string; commandName: string }>
+    }
+  ): Promise<{
+    command: string
+    pull_request_comment: string
+    summary: string
+  } | null> {
     core.info(`Executing command: ${commandName}`)
     core.info(`Description: ${commandConfig.description}`)
 
+    let combinedComment = ''
+    let combinedSummary = ''
+
     for (const instruction of commandConfig.instructions) {
-      await this.executeInstruction(
+      const result = await this.executeInstruction(
         commandName,
         commandConfig,
         instruction,
         changedFiles,
-        prInfo
+        prInfo,
+        otherCommandOutputs,
+        executionPlan
       )
+
+      if (result) {
+        combinedComment += result.pull_request_comment + '\n\n'
+        combinedSummary += result.summary + ' '
+      }
+    }
+
+    if (combinedComment || combinedSummary) {
+      return {
+        command: commandName,
+        pull_request_comment: combinedComment.trim(),
+        summary: combinedSummary.trim()
+      }
+    }
+
+    return null
+  }
+
+  async planCommands(
+    commands: Record<string, CommandConfig>,
+    changedFiles: ChangedFile[],
+    prInfo: PullRequestInfo
+  ): Promise<{
+    [commandName: string]: {
+      loadFiles: Array<{ reason: string; fullContent: boolean; path: string }>
+      loadCommandOutputs: Array<{ reason: string; commandName: string }>
+    }
+  }> {
+    core.info('Planning command execution...')
+
+    const prComments = await this.githubService.getPullRequestComments(prInfo)
+
+    // Convert to BAML format
+    const pullRequestForPlan = {
+      title: prInfo.title,
+      body: prInfo.body,
+      comments: prComments.map((comment) => ({
+        author: comment.author,
+        body: comment.body
+      })),
+      files: changedFiles.map((file) => ({
+        filename: file.filename,
+        status: file.status
+      }))
+    }
+
+    const commandsForPlan = Object.entries(commands).map(([name, config]) => ({
+      name,
+      description: config.description,
+      instructions: {
+        applyTo: config.instructions[0]?.applyTo,
+        prompt: config.instructions[0]?.prompt || '',
+        files:
+          config.instructions[0]?.files?.map((f) => ({
+            name: f.name,
+            path: f.path
+          })) || [],
+        modifiedOnly: config.instructions[0]?.modifiedOnly
+      }
+    }))
+
+    try {
+      const collector = new Collector('llm-command-action-planning')
+      const clientRegistry = new ClientRegistry()
+
+      // Setup small LLM client for planning
+      const planningClientConfig = this.llmClients.small
+      const clientName = 'llm-command-action-planning-client'
+
+      // Resolve environment variables in api_key
+      const options = { ...planningClientConfig.options }
+      if (options.api_key && options.api_key.startsWith('env.')) {
+        const envVar = options.api_key.substring(4)
+        options.api_key = process.env[envVar]
+      }
+
+      clientRegistry.addLlmClient(
+        clientName,
+        planningClientConfig.provider,
+        options
+      )
+      clientRegistry.setPrimary(clientName)
+
+      const planResult = await bamlClient.Plan(
+        pullRequestForPlan,
+        commandsForPlan,
+        {
+          clientRegistry,
+          collector
+        }
+      )
+
+      core.info(`Planning Usage: ${collector.usage}`)
+
+      // Convert plan result to a more usable format
+      const executionPlan: {
+        [commandName: string]: {
+          loadFiles: Array<{
+            reason: string
+            fullContent: boolean
+            path: string
+          }>
+          loadCommandOutputs: Array<{ reason: string; commandName: string }>
+        }
+      } = {}
+
+      for (const plan of planResult.plans) {
+        executionPlan[plan.name] = {
+          loadFiles: plan.loadFiles,
+          loadCommandOutputs: plan.loadCommandOutputs
+        }
+      }
+
+      core.info(
+        `Generated execution plan for ${Object.keys(executionPlan).length} commands`
+      )
+      return executionPlan
+    } catch (error) {
+      core.warning(
+        `Planning failed, falling back to default execution: ${error}`
+      )
+      return {}
     }
   }
 
@@ -51,8 +198,25 @@ export class CommandExecutor {
     commandConfig: CommandConfig,
     instruction: CommandInstruction,
     changedFiles: ChangedFile[],
-    prInfo: PullRequestInfo
-  ): Promise<void> {
+    prInfo: PullRequestInfo,
+    otherCommandOutputs: Array<{
+      command: string
+      pull_request_comment: string
+      summary: string
+    }> = [],
+    executionPlan?: {
+      loadFiles: Array<{
+        reason: string
+        fullContent: boolean
+        path: string
+      }>
+      loadCommandOutputs: Array<{ reason: string; commandName: string }>
+    }
+  ): Promise<{
+    command: string
+    pull_request_comment: string
+    summary: string
+  } | null> {
     let targetFiles: TargetFile[] = []
     const applyTo = instruction.applyTo ?? 'none'
     if (applyTo != 'none') {
@@ -80,7 +244,7 @@ export class CommandExecutor {
         core.info(
           `No files match pattern "${applyTo}" for command ${commandName}`
         )
-        return
+        return null
       }
 
       core.info(
@@ -88,9 +252,75 @@ export class CommandExecutor {
       )
     }
 
+    // Load reference files from instruction configuration
     const referenceFiles = await this.loadReferenceFiles(
       instruction.files || []
     )
+
+    // Track already loaded file paths to avoid duplicates
+    const loadedFilePaths = new Set(referenceFiles.map((f) => f.path))
+
+    // Load additional files from execution plan if available
+    if (executionPlan?.loadFiles) {
+      core.info(
+        `Processing ${executionPlan.loadFiles.length} files from execution plan`
+      )
+      for (const fileToLoad of executionPlan.loadFiles) {
+        // Skip if file is already loaded
+        if (loadedFilePaths.has(fileToLoad.path)) {
+          core.info(`Skipping duplicate file: ${fileToLoad.path}`)
+          continue
+        }
+
+        try {
+          const content = await this.githubService.getReferenceFileContent(
+            fileToLoad.path
+          )
+
+          // If fullContent is false, try to get patch instead of full content
+          let fileContent = content
+          if (!fileToLoad.fullContent) {
+            const changedFile = changedFiles.find(
+              (f) => f.filename === fileToLoad.path
+            )
+            if (changedFile?.patch) {
+              fileContent = changedFile.patch
+            }
+          }
+
+          referenceFiles.push({
+            name: fileToLoad.reason,
+            path: fileToLoad.path,
+            content: fileContent
+          })
+          loadedFilePaths.add(fileToLoad.path)
+          core.info(
+            `Loaded additional file: ${fileToLoad.path} (${fileToLoad.reason})`
+          )
+        } catch (error) {
+          core.warning(
+            `Failed to load planned file ${fileToLoad.path}: ${error}`
+          )
+        }
+      }
+    }
+
+    // Filter command outputs based on execution plan if available
+    let relevantCommandOutputs = otherCommandOutputs
+    if (
+      executionPlan?.loadCommandOutputs &&
+      executionPlan.loadCommandOutputs.length > 0
+    ) {
+      const commandNamesToInclude = new Set(
+        executionPlan.loadCommandOutputs.map((cmd) => cmd.commandName)
+      )
+      relevantCommandOutputs = otherCommandOutputs.filter((output) =>
+        commandNamesToInclude.has(output.command)
+      )
+      core.info(
+        `Including outputs from ${relevantCommandOutputs.length} commands based on execution plan`
+      )
+    }
 
     const prComments = await this.githubService.getPullRequestComments(prInfo)
 
@@ -99,9 +329,7 @@ export class CommandExecutor {
       body: prInfo.body,
       comments: prComments.map((comment) => ({
         author: comment.author,
-        body: comment.body,
-        isFromLLMAction: comment.isFromLLMAction,
-        commandName: comment.commandName
+        body: comment.body
       }))
     }
 
@@ -116,48 +344,25 @@ export class CommandExecutor {
       core.info(`Executing LLM function for command ${commandName}`)
       const collector = new Collector('llm-command-action')
       const clientRegistry = new ClientRegistry()
+      const clientConfig = this.llmClients.large
+      const clientName = 'llm-command-action-client'
 
-      // Setup LLM clients from configuration
-      if (this.llmClients.length > 0) {
-        for (let i = 0; i < this.llmClients.length; i++) {
-          const clientConfig = this.llmClients[i]
-          const clientName = `llm-command-action-client-${i}`
-
-          // Resolve environment variables in api_key
-          const options = { ...clientConfig.options }
-          if (options.api_key && options.api_key.startsWith('env.')) {
-            const envVar = options.api_key.substring(4)
-            options.api_key = process.env[envVar]
-          }
-
-          clientRegistry.addLlmClient(
-            clientName,
-            clientConfig.provider,
-            options
-          )
-
-          // Set the first client as primary
-          if (i === 0) {
-            clientRegistry.setPrimary(clientName)
-          }
-        }
-      } else {
-        // Fallback to hardcoded OpenAI client if no configuration provided
-        const provider = 'openai'
-        const apiKey = process.env.OPENAI_API_KEY
-        const model = 'gpt-4o-mini'
-        clientRegistry.addLlmClient('llm-command-action-client', provider, {
-          api_key: apiKey,
-          model
-        })
-        clientRegistry.setPrimary('llm-command-action-client')
+      // Resolve environment variables in api_key
+      const options = { ...clientConfig.options }
+      if (options.api_key && options.api_key.startsWith('env.')) {
+        const envVar = options.api_key.substring(4)
+        options.api_key = process.env[envVar]
       }
+
+      clientRegistry.addLlmClient(clientName, clientConfig.provider, options)
+      clientRegistry.setPrimary(clientName)
 
       const result = await bamlClient.ExecuteCommandInPullRequest(
         instruction.prompt,
         bamlTargetFiles,
         pullRequest,
         referenceFiles,
+        relevantCommandOutputs,
         {
           clientRegistry,
           collector
@@ -167,7 +372,13 @@ export class CommandExecutor {
 
       if (result.pull_request_comment) {
         const commentHeader = `## 🤖 ${commandName}\n\n${commandConfig.description}\n\n`
-        const fullComment = commentHeader + result.pull_request_comment
+        let fullComment = commentHeader + result.pull_request_comment
+
+        // Add debug information if enabled
+        if (this.debug) {
+          const debugInfo = `\n\n<!-- llm-command-action:debug\nToken Usage: ${collector.usage}\nCommand: ${commandName}\nTimestamp: ${new Date().toISOString()}\n-->`
+          fullComment += debugInfo
+        }
 
         await this.githubService.addPullRequestComment(
           prInfo,
@@ -179,6 +390,8 @@ export class CommandExecutor {
 
       core.setOutput(`${commandName}_summary`, result.summary)
       core.setOutput(`${commandName}_comment`, result.pull_request_comment)
+
+      return result
     } catch (error) {
       core.error(`Failed to execute command ${commandName}: ${error}`)
 

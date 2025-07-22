@@ -7,6 +7,8 @@ on:
   push:
     branches:
       - main
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
@@ -59,6 +61,7 @@ jobs:
         uses: ./
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          debug: true
           commands: |
             pr-ci-test
         env:

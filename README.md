@@ -16,6 +16,12 @@ code reviews, documentation generation, and automated analysis.
 - **Context-Aware**: Leverages pull request context, file changes, and reference
   materials
 
+## Demos
+
+- GraphQL Schema Review
+  - [GHA](https://github.com/mahwy/llm-command-action/blob/main/.github/workflows/demo-ci.yml)
+  - [Demo PR](https://github.com/mahwy/llm-command-action/pull/10)
+
 ## Quick Start
 
 ### 1. Add the Action to Your Workflow
@@ -63,11 +69,16 @@ Create a `.llm-commands.yaml` file in your repository root:
 ```yaml
 # For provider name and options, see https://docs.boundaryml.com/ref/llm-client-providers/overview
 llm-clients:
-  # Currently, only one client is supported.
-  - provider: openai
+  large:
+    provider: openai
     options:
       api_key: env.OPENAI_API_KEY
-      model: gpt-4o-mini
+      model: gpt-4.1
+  small:
+    provider: openai
+    options:
+      api_key: env.OPENAI_API_KEY
+      model: gpt-4.1-mini
 commands:
   review-sql-schema:
     description: |

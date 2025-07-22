@@ -31,43 +31,110 @@ import { DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIME } from './
 export default class TypeBuilder {
   private tb: _TypeBuilder
 
-  CommandOuputInPullRequest: ClassViewer<
-    'CommandOuputInPullRequest',
-    'pull_request_comment' | 'summary'
+  Command: ClassViewer<'Command', 'name' | 'description' | 'instructions'>
+
+  CommandInstruction: ClassViewer<
+    'CommandInstruction',
+    'applyTo' | 'prompt' | 'files' | 'modifiedOnly'
   >
 
-  Comment: ClassViewer<
-    'Comment',
-    'author' | 'body' | 'isFromLLMAction' | 'commandName'
+  CommandOuputInPullRequest: ClassViewer<
+    'CommandOuputInPullRequest',
+    'command' | 'pull_request_comment' | 'summary'
   >
+
+  CommandPlan: ClassViewer<
+    'CommandPlan',
+    'name' | 'loadFiles' | 'loadCommandOutputs'
+  >
+
+  CommandReferenceFile: ClassViewer<'CommandReferenceFile', 'name' | 'path'>
+
+  Comment: ClassViewer<'Comment', 'author' | 'body'>
 
   File: ClassViewer<'File', 'name' | 'path' | 'content' | 'patch'>
 
+  LoadCommandOutputIntoContext: ClassViewer<
+    'LoadCommandOutputIntoContext',
+    'reason' | 'commandName'
+  >
+
+  LoadFileIntoContext: ClassViewer<
+    'LoadFileIntoContext',
+    'reason' | 'fullContent' | 'path'
+  >
+
+  PlanResult: ClassViewer<'PlanResult', 'plans'>
+
   PullRequest: ClassViewer<'PullRequest', 'title' | 'body' | 'comments'>
+
+  PullRequestCommentForPlan: ClassViewer<
+    'PullRequestCommentForPlan',
+    'author' | 'body'
+  >
+
+  PullRequestFileForPlan: ClassViewer<
+    'PullRequestFileForPlan',
+    'filename' | 'status'
+  >
+
+  PullRequestForPlan: ClassViewer<
+    'PullRequestForPlan',
+    'title' | 'body' | 'comments' | 'files'
+  >
 
   constructor() {
     this.tb = new _TypeBuilder({
       classes: new Set([
+        'Command',
+        'CommandInstruction',
         'CommandOuputInPullRequest',
+        'CommandPlan',
+        'CommandReferenceFile',
         'Comment',
         'File',
-        'PullRequest'
+        'LoadCommandOutputIntoContext',
+        'LoadFileIntoContext',
+        'PlanResult',
+        'PullRequest',
+        'PullRequestCommentForPlan',
+        'PullRequestFileForPlan',
+        'PullRequestForPlan'
       ]),
       enums: new Set([]),
       runtime: DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIME
     })
 
+    this.Command = this.tb.classViewer('Command', [
+      'name',
+      'description',
+      'instructions'
+    ])
+
+    this.CommandInstruction = this.tb.classViewer('CommandInstruction', [
+      'applyTo',
+      'prompt',
+      'files',
+      'modifiedOnly'
+    ])
+
     this.CommandOuputInPullRequest = this.tb.classViewer(
       'CommandOuputInPullRequest',
-      ['pull_request_comment', 'summary']
+      ['command', 'pull_request_comment', 'summary']
     )
 
-    this.Comment = this.tb.classViewer('Comment', [
-      'author',
-      'body',
-      'isFromLLMAction',
-      'commandName'
+    this.CommandPlan = this.tb.classViewer('CommandPlan', [
+      'name',
+      'loadFiles',
+      'loadCommandOutputs'
     ])
+
+    this.CommandReferenceFile = this.tb.classViewer('CommandReferenceFile', [
+      'name',
+      'path'
+    ])
+
+    this.Comment = this.tb.classViewer('Comment', ['author', 'body'])
 
     this.File = this.tb.classViewer('File', [
       'name',
@@ -76,10 +143,40 @@ export default class TypeBuilder {
       'patch'
     ])
 
+    this.LoadCommandOutputIntoContext = this.tb.classViewer(
+      'LoadCommandOutputIntoContext',
+      ['reason', 'commandName']
+    )
+
+    this.LoadFileIntoContext = this.tb.classViewer('LoadFileIntoContext', [
+      'reason',
+      'fullContent',
+      'path'
+    ])
+
+    this.PlanResult = this.tb.classViewer('PlanResult', ['plans'])
+
     this.PullRequest = this.tb.classViewer('PullRequest', [
       'title',
       'body',
       'comments'
+    ])
+
+    this.PullRequestCommentForPlan = this.tb.classViewer(
+      'PullRequestCommentForPlan',
+      ['author', 'body']
+    )
+
+    this.PullRequestFileForPlan = this.tb.classViewer(
+      'PullRequestFileForPlan',
+      ['filename', 'status']
+    )
+
+    this.PullRequestForPlan = this.tb.classViewer('PullRequestForPlan', [
+      'title',
+      'body',
+      'comments',
+      'files'
     ])
   }
 

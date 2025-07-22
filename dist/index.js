@@ -34084,16 +34084,29 @@ async function loadConfig(workspacePath, configPath) {
         throw new Error('Failed to parse configuration file');
     }
 }
-function getCommandsToRun(config, requestedCommands) {
+function getCommandsToRun(config, requestedCommands, fromComment = false) {
     const availableCommands = Object.keys(config.commands);
     const commandsToRun = [];
     for (const cmd of requestedCommands) {
         const trimmedCmd = cmd.trim();
         if (trimmedCmd && availableCommands.includes(trimmedCmd)) {
+            const commandConfig = config.commands[trimmedCmd];
+            // If command is from comment, check if it's allowed (default: true)
+            if (fromComment && commandConfig.canExecuteFromComment === false) {
+                continue;
+            }
             commandsToRun.push(trimmedCmd);
         }
     }
     return commandsToRun;
+}
+function getCommentEnabledCommands(config) {
+    return Object.entries(config.commands)
+        .filter(([, commandConfig]) => commandConfig.canExecuteFromComment !== false)
+        .map(([name, commandConfig]) => ({
+        name,
+        description: commandConfig.description
+    }));
 }
 
 class GitHubService {
@@ -34193,14 +34206,13 @@ class GitHubService {
                 repo: this.context.repo.repo,
                 issue_number: prInfo.number
             });
-            return comments.map((comment) => {
+            return comments
+                .filter((comment) => !!comment.body?.match(/<!-- llm-command-action:(.+?) -->/))
+                .map((comment) => {
                 const body = comment.body || '';
-                const llmActionMarkerMatch = body.match(/<!-- llm-command-action:(.+?) -->/);
                 return {
                     author: comment.user?.login || '',
-                    body,
-                    isFromLLMAction: !!llmActionMarkerMatch,
-                    commandName: llmActionMarkerMatch?.[1]
+                    body
                 };
             });
         }
@@ -43203,7 +43215,7 @@ class AsyncHttpRequest {
         this.runtime = runtime;
         this.ctxManager = ctxManager;
     }
-    async ExecuteCommandInPullRequest(inputPrompt, targetFiles, pullRequest, referenceFiles, __baml_options__) {
+    async ExecuteCommandInPullRequest(inputPrompt, targetFiles, pullRequest, referenceFiles, otherCommandOutputs, __baml_options__) {
         try {
             const rawEnv = __baml_options__?.env
                 ? { ...process.env, ...__baml_options__.env }
@@ -43213,7 +43225,23 @@ class AsyncHttpRequest {
                 inputPrompt: inputPrompt,
                 targetFiles: targetFiles,
                 pullRequest: pullRequest,
-                referenceFiles: referenceFiles
+                referenceFiles: referenceFiles,
+                otherCommandOutputs: otherCommandOutputs
+            }, this.ctxManager.cloneContext(), __baml_options__?.tb?.__tb(), __baml_options__?.clientRegistry, false, env);
+        }
+        catch (error) {
+            throw bamlExports.toBamlError(error);
+        }
+    }
+    async Plan(pullRequest, commands, __baml_options__) {
+        try {
+            const rawEnv = __baml_options__?.env
+                ? { ...process.env, ...__baml_options__.env }
+                : { ...process.env };
+            const env = Object.fromEntries(Object.entries(rawEnv).filter(([_, value]) => value !== undefined));
+            return await this.runtime.buildRequest('Plan', {
+                pullRequest: pullRequest,
+                commands: commands
             }, this.ctxManager.cloneContext(), __baml_options__?.tb?.__tb(), __baml_options__?.clientRegistry, false, env);
         }
         catch (error) {
@@ -43228,7 +43256,7 @@ class AsyncHttpStreamRequest {
         this.runtime = runtime;
         this.ctxManager = ctxManager;
     }
-    async ExecuteCommandInPullRequest(inputPrompt, targetFiles, pullRequest, referenceFiles, __baml_options__) {
+    async ExecuteCommandInPullRequest(inputPrompt, targetFiles, pullRequest, referenceFiles, otherCommandOutputs, __baml_options__) {
         try {
             const rawEnv = __baml_options__?.env
                 ? { ...process.env, ...__baml_options__.env }
@@ -43238,7 +43266,23 @@ class AsyncHttpStreamRequest {
                 inputPrompt: inputPrompt,
                 targetFiles: targetFiles,
                 pullRequest: pullRequest,
-                referenceFiles: referenceFiles
+                referenceFiles: referenceFiles,
+                otherCommandOutputs: otherCommandOutputs
+            }, this.ctxManager.cloneContext(), __baml_options__?.tb?.__tb(), __baml_options__?.clientRegistry, true, env);
+        }
+        catch (error) {
+            throw bamlExports.toBamlError(error);
+        }
+    }
+    async Plan(pullRequest, commands, __baml_options__) {
+        try {
+            const rawEnv = __baml_options__?.env
+                ? { ...process.env, ...__baml_options__.env }
+                : { ...process.env };
+            const env = Object.fromEntries(Object.entries(rawEnv).filter(([_, value]) => value !== undefined));
+            return await this.runtime.buildRequest('Plan', {
+                pullRequest: pullRequest,
+                commands: commands
             }, this.ctxManager.cloneContext(), __baml_options__?.tb?.__tb(), __baml_options__?.clientRegistry, true, env);
         }
         catch (error) {
@@ -43275,6 +43319,18 @@ class LlmResponseParser {
             throw bamlExports.toBamlError(error);
         }
     }
+    Plan(llmResponse, __baml_options__) {
+        try {
+            const rawEnv = __baml_options__?.env
+                ? { ...process.env, ...__baml_options__.env }
+                : { ...process.env };
+            const env = Object.fromEntries(Object.entries(rawEnv).filter(([_, value]) => value !== undefined));
+            return this.runtime.parseLlmResponse('Plan', llmResponse, false, this.ctxManager.cloneContext(), __baml_options__?.tb?.__tb(), __baml_options__?.clientRegistry, env);
+        }
+        catch (error) {
+            throw bamlExports.toBamlError(error);
+        }
+    }
 }
 class LlmStreamParser {
     runtime;
@@ -43290,6 +43346,18 @@ class LlmStreamParser {
                 : { ...process.env };
             const env = Object.fromEntries(Object.entries(rawEnv).filter(([_, value]) => value !== undefined));
             return this.runtime.parseLlmResponse('ExecuteCommandInPullRequest', llmResponse, true, this.ctxManager.cloneContext(), __baml_options__?.tb?.__tb(), __baml_options__?.clientRegistry, env);
+        }
+        catch (error) {
+            throw bamlExports.toBamlError(error);
+        }
+    }
+    Plan(llmResponse, __baml_options__) {
+        try {
+            const rawEnv = __baml_options__?.env
+                ? { ...process.env, ...__baml_options__.env }
+                : { ...process.env };
+            const env = Object.fromEntries(Object.entries(rawEnv).filter(([_, value]) => value !== undefined));
+            return this.runtime.parseLlmResponse('Plan', llmResponse, true, this.ctxManager.cloneContext(), __baml_options__?.tb?.__tb(), __baml_options__?.clientRegistry, env);
         }
         catch (error) {
             throw bamlExports.toBamlError(error);
@@ -43316,9 +43384,10 @@ $ pnpm add @boundaryml/baml
 // @ts-nocheck
 // biome-ignore format: autogenerated code
 const fileMap = {
-    'clients.baml': '// Learn more about clients at https://docs.boundaryml.com/docs/snippets/clients/overview\n\nclient<llm> CustomGPT4o {\n  provider openai\n  options {\n    model "gpt-4o"\n    api_key env.OPENAI_API_KEY\n  }\n}\n\nclient<llm> CustomGPT4oMini {\n  provider openai\n  retry_policy Exponential\n  options {\n    model "gpt-4o-mini"\n    api_key env.OPENAI_API_KEY\n  }\n}\n\nclient<llm> CustomSonnet {\n  provider anthropic\n  options {\n    model "claude-3-5-sonnet-20241022"\n    api_key env.ANTHROPIC_API_KEY\n  }\n}\n\n\nclient<llm> CustomHaiku {\n  provider anthropic\n  retry_policy Constant\n  options {\n    model "claude-3-haiku-20240307"\n    api_key env.ANTHROPIC_API_KEY\n  }\n}\n\n// https://docs.boundaryml.com/docs/snippets/clients/round-robin\nclient<llm> CustomFast {\n  provider round-robin\n  options {\n    // This will alternate between the two clients\n    strategy [CustomGPT4oMini, CustomHaiku]\n  }\n}\n\n// https://docs.boundaryml.com/docs/snippets/clients/fallback\nclient<llm> OpenaiFallback {\n  provider fallback\n  options {\n    // This will try the clients in order until one succeeds\n    strategy [CustomGPT4oMini, CustomGPT4oMini]\n  }\n}\n\n// https://docs.boundaryml.com/docs/snippets/clients/retry\nretry_policy Constant {\n  max_retries 3\n  // Strategy is optional\n  strategy {\n    type constant_delay\n    delay_ms 200\n  }\n}\n\nretry_policy Exponential {\n  max_retries 2\n  // Strategy is optional\n  strategy {\n    type exponential_backoff\n    delay_ms 300\n    multiplier 1.5\n    max_delay_ms 10000\n  }\n}',
-    'command.baml': '\nclass CommandOuputInPullRequest {\n  pull_request_comment string @description(#"\n    A comment to add to the pull request as a response to the command.\n  "#)\n  summary string @description(#"\n    A summary of the input prompt and the output response.\n  "#)\n}\n\nclass PullRequest {\n  title string\n  body string\n  comments Comment[]\n}\n\nclass Comment {\n  author string\n  body string\n  isFromLLMAction bool? @description(#"\n    Whether this comment was generated by llm-command-action\n  "#)\n  commandName string? @description(#"\n    The name of the command that generated this comment (if from llm-command-action)\n  "#)\n}\n\nclass File {\n  name string?\n  path string\n  content string\n  patch string?\n}\n\n\n\nfunction ExecuteCommandInPullRequest(inputPrompt: string, targetFiles: File[], pullRequest: PullRequest, referenceFiles: File[]) -> CommandOuputInPullRequest {\n  // Specify a client as provider/model-name\n  // you can use custom LLM params with a custom client name from clients.baml like "client CustomHaiku"\n  client "openai/gpt-4o" // Set OPENAI_API_KEY to use this client.\n  prompt #"\n\n    {{ _.role("system")}}\n    Execute a given prompt for given target files and a pull request and return the ouput response.\n\n    {{ _.role("user")}}\n\n    {{ inputPrompt }}\n\n    {% if targetFiles %}\n    <targetFiles>\n    {% for f in targetFiles %}\n    <file>\n    {% if f.name %}\n    <name>\n    {{f.name}}\n    </name>\n    {% endif %}\n    <path>\n    {{f.path}}\n    </path>\n    <content>\n    {{f.content}}\n    </content>\n    {% if f.patch %}\n    <patch>\n    {{f.patch}}\n    </patch>\n    {% endif %}\n    </file>\n    {% endfor %}\n    </targetFiles>\n    {% endif %}\n\n    {% if pullRequest %}\n    <pullRequest>\n    <title>\n    {{ pullRequest.title }}\n    </title>\n    <body>\n    {{ pullRequest.body }}\n    </body>\n    <comments>\n    {% for c in pullRequest.comments %}\n    <comment>\n    <author>\n    {{ c.author }}\n    </author>\n    <body>\n    {{ c.body }}\n    </body>\n    {% if c.isFromLLMAction %}\n    <isFromLLMAction>\n    {{ c.isFromLLMAction }}\n    </isFromLLMAction>\n    {% endif %}\n    {% if c.commandName %}\n    <commandName>\n    {{ c.commandName }}\n    </commandName>\n    {% endif %}    \n    </comment>\n    {% endfor %}\n    </pullRequest>\n    {% endif %}\n\n\n    <referenceFiles>\n    {% for f in referenceFiles %}\n    <file>\n    {% if f.name %}\n    <name>\n    {{f.name}}\n    </name>\n    {% endif %}\n    <path>\n    {{f.path}}\n    </path>\n    <content>\n    {{f.content}}\n    </content>\n    </file>\n    {% endfor %}\n    </referenceFiles>\n\n    {{ ctx.output_format }}\n  "#\n}\n\n\n\ntest sql_schema_review {\n  functions [ExecuteCommandInPullRequest]\n  args {\n    inputPrompt #"\n      Review this SQL schema definition. Check for normalization, naming conventions, and indexing.\n      Suggest improvements or raise warnings if there are any anti-patterns.\n      Please write the response in markdown format in a concise manner.\n    "#\n    targetFiles [\n      {\n        path "schema.sql"\n        content #"\n          CREATE TABLE user (\n            id INT PRIMARY KEY,\n            name VARCHAR(255),\n            email VARCHAR(255)\n          );\n\n          CREATE TABLE post (\n            id INT PRIMARY KEY,\n            title VARCHAR(255),\n            content TEXT,\n            user_id INT,\n            FOREIGN KEY (user_id) REFERENCES user(id)\n          );\n\n          CREATE INDEX idx_posts_user_id ON post(user_id);\n        "#\n      }\n    ]\n    pullRequest {\n      title "Add indexes to improve performance"\n      body "We need to add indexes to improve the performance of the queries."\n      comments [\n        { author "John Doe", body "Looks good to me." }\n      ]\n    }\n    referenceFiles [\n      {\n        path "guidelines/db-schema-style.md"\n        content #"\n          # Database Schema Style Guidelines\n\n          ## Table Naming\n          - Use plural nouns for table names.\n          - Use lowercase with underscores for table names.\n          - Use descriptive names that reflect the data they contain.\n        "#\n      }\n    ]\n  }\n}\n\ntest graphql_schema_review {\n  functions [ExecuteCommandInPullRequest]\n  args {\n    inputPrompt #"\n      Review this GraphQL schema file against the provided style and naming guidelines.\n      Highlight any issues and suggest improvements.\n      Please write the response in markdown format in a concise manner.\n    "#\n    targetFiles [\n      {\n        path "schema.graphql"\n        content #"\n          type User {\n            id: ID!\n            name: String!\n            email: String!\n            posts: [Post!]!\n          }\n\n          type Post {\n            id: ID!\n            title: String!\n            content: String!\n            author: User!\n            createdAt: String!\n          }\n\n          type Query {\n            user(id: ID!): User\n            posts: [Post!]!\n          }\n\n          type Mutation {\n            createPost(title: String!, content: String!, authorId: ID!): Post!\n          }\n        "#\n      }\n    ]\n    pullRequest {\n      title "Add GraphQL schema for blog posts"\n      body "This PR introduces the initial GraphQL schema for our blog functionality, including User and Post types."\n      comments [\n        { \n          author "reviewer", \n          body "The schema looks good overall, but we should consider adding pagination for the posts query." \n        },\n        { \n          author "author", \n          body "Good point about pagination. Should I use cursor-based or offset-based pagination?" \n        }\n      ]\n    }\n    referenceFiles [\n      {\n        path "guidelines/graphql-style.md"\n        name "GraphQL style guide"\n        content #"\n          # GraphQL Style Guide\n\n          ## Naming Conventions\n          - Use PascalCase for type names\n          - Use camelCase for field names\n          - Use descriptive names that clearly indicate the field\'s purpose\n\n          ## Best Practices\n          - Always use non-null types (!) where appropriate\n          - Implement pagination for list fields that could return large datasets\n          - Use ISO 8601 format for dates (DateTime scalar type preferred over String)\n          - Group related fields into separate types when appropriate\n        "#\n      }\n    ]\n  }\n}\n\ntest discussion_summarization {\n  functions [ExecuteCommandInPullRequest]\n  args {\n    inputPrompt #"\n      Summarize the conversation between reviewers and authors in this pull request.\n      Highlight key concerns, decisions, and remaining open questions.\n      Please write the response in markdown format in a concise manner.\n    "#\n    targetFiles [\n      {\n        path "."\n        content ""\n      }\n    ]\n    pullRequest {\n      title "Refactor authentication system to use JWT tokens"\n      body #"\n        This PR refactors our authentication system to use JWT tokens instead of session-based authentication.\n        \n        ## Changes\n        - Replace session middleware with JWT verification\n        - Add token refresh mechanism\n        - Update user login/logout endpoints\n        - Add proper error handling for expired tokens\n        \n        ## Breaking Changes\n        - Clients will need to store JWT tokens instead of relying on cookies\n        - Token expiration is now 24 hours instead of indefinite session\n      "#\n      comments [\n        {\n          author "security_reviewer"\n          body #"\n            This looks good overall, but I have a few security concerns:\n            \n            1. Are we storing the JWT secret securely?\n            2. Should we implement token blacklisting for logout?\n            3. 24 hours seems long for token expiration - maybe 1 hour with refresh tokens?\n          "#\n        },\n        {\n          author "author"\n          body #"\n            Thanks for the review! Addressing your points:\n            \n            1. Yes, JWT secret is stored in environment variables and rotated monthly\n            2. Good point about blacklisting - I\'ll add a Redis-based token blacklist\n            3. I chose 24h based on UX feedback, but we do have refresh tokens. Open to shorter if team prefers.\n          "#\n        },\n        {\n          author "frontend_dev"\n          body #"\n            How will this affect the mobile app? We\'ll need to update token storage there too.\n            Also, what\'s the migration plan for existing users?\n          "#\n        },\n        {\n          author "author"\n          body #"\n            @frontend_dev Great questions:\n            \n            - Mobile app will need updates to store tokens in secure storage\n            - Migration: existing sessions will remain valid until expiry, then users login normally\n            - I\'ll create a separate ticket for mobile app updates\n          "#\n        },\n        {\n          author "security_reviewer"\n          body #"\n            Sounds good on the blacklisting. For token expiration, let\'s go with 1 hour for now - we can always increase it later if users complain.\n            \n            Also, please make sure we\'re validating the token signature properly and checking issuer claims.\n          "#\n        },\n        {\n          author "author"\n          body #"\n            @security_reviewer Will do! I\'ll update to 1 hour expiration and add the additional JWT validation you mentioned.\n          "#\n        }\n      ]\n    }\n    referenceFiles []\n  }\n}\n\ntest changelog_generation {\n  functions [ExecuteCommandInPullRequest]\n  args {\n    inputPrompt #"\n      Based on the code changes and PR title and description, generate or update an entry in CHANGELOG.md.\n      Maintain consistent formatting and group changes by type (e.g., Feature, Fix, Docs).\n      Please write the response in markdown format in a concise manner.\n    "#\n    targetFiles [\n      {\n        path "src/api/users.ts"\n        content #"\n          export class UserService {\n            async createUser(userData: CreateUserRequest): Promise<User> {\n              // Validate required fields\n              if (!userData.email || !userData.name) {\n                throw new Error(\'Email and name are required\');\n              }\n              \n              // Check for existing user\n              const existingUser = await this.findByEmail(userData.email);\n              if (existingUser) {\n                throw new Error(\'User with this email already exists\');\n              }\n              \n              // Create new user with hashed password\n              const hashedPassword = await bcrypt.hash(userData.password, 10);\n              return await this.userRepository.create({\n                ...userData,\n                password: hashedPassword,\n                createdAt: new Date()\n              });\n            }\n            \n            async updateUserProfile(userId: string, updates: UserProfileUpdate): Promise<User> {\n              const user = await this.userRepository.findById(userId);\n              if (!user) {\n                throw new Error(\'User not found\');\n              }\n              \n              return await this.userRepository.update(userId, {\n                ...updates,\n                updatedAt: new Date()\n              });\n            }\n          }\n        "#\n      },\n      {\n        path "src/api/auth.ts"\n        content #"\n          export class AuthService {\n            async login(email: string, password: string): Promise<{ token: string; user: User }> {\n              const user = await this.userService.findByEmail(email);\n              if (!user) {\n                throw new Error(\'Invalid credentials\');\n              }\n              \n              const isPasswordValid = await bcrypt.compare(password, user.password);\n              if (!isPasswordValid) {\n                throw new Error(\'Invalid credentials\');\n              }\n              \n              // Generate JWT token with 1 hour expiration\n              const token = jwt.sign(\n                { userId: user.id, email: user.email },\n                process.env.JWT_SECRET!,\n                { expiresIn: \'1h\' }\n              );\n              \n              return { token, user: this.sanitizeUser(user) };\n            }\n          }\n        "#\n      }\n    ]\n    pullRequest {\n      title "Add user management and authentication APIs"\n      body #"\n        This PR adds comprehensive user management and authentication functionality:\n\n        ## Features Added\n        - User registration with validation and duplicate checking\n        - User profile updates\n        - JWT-based authentication with 1-hour token expiration\n        - Password hashing using bcrypt\n        - Proper error handling for invalid credentials\n\n        ## Security Improvements\n        - Passwords are hashed before storage\n        - JWT tokens have reasonable expiration times\n        - Input validation for required fields\n        - Sanitized user data in responses\n\n        ## Breaking Changes\n        None - this is new functionality.\n\n        ## Testing\n        - Added unit tests for UserService and AuthService\n        - Integration tests for auth endpoints\n      "#\n      comments [\n        {\n          author "reviewer"\n          body "The implementation looks solid. Are we planning to add rate limiting for the auth endpoints?"\n        },\n        {\n          author "author"\n          body "Good point! I\'ll add that in a follow-up PR focused on security enhancements."\n        }\n      ]\n    }\n    referenceFiles [\n      {\n        path "CHANGELOG.md"\n        content #"\n          # Changelog\n\n          All notable changes to this project will be documented in this file.\n\n          The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),\n          and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n\n          ## [Unreleased]\n\n          ## [1.2.0] - 2024-01-15\n\n          ### Added\n          - Database migration system\n          - Basic user model and repository\n\n          ### Fixed\n          - Configuration loading bug in production environment\n\n          ## [1.1.0] - 2024-01-10\n\n          ### Added\n          - Initial project setup\n          - Basic Express.js server configuration\n          - Environment variable management\n        "#\n      },\n      {\n        path "https://example.com/templates/changelog-format.md"\n        name "Changelog formatting template"\n        content #"\n          # Changelog Format Guidelines\n\n          ## Structure\n          - Use semantic versioning (MAJOR.MINOR.PATCH)\n          - Group changes by type: Added, Changed, Deprecated, Removed, Fixed, Security\n          - List changes in reverse chronological order\n\n          ## Entry Format\n          ```markdown\n          ### Added\n          - New feature description [#123](link-to-issue)\n\n          ### Fixed\n          - Bug fix description [#456](link-to-pr)\n          ```\n\n          ## Best Practices\n          - Write clear, concise descriptions\n          - Link to relevant issues or PRs when available\n          - Focus on user-facing changes\n          - Avoid technical implementation details\n        "#\n      }\n    ]\n  }\n}\n\ntest empty_files_edge_case {\n  functions [ExecuteCommandInPullRequest]\n  args {\n    inputPrompt #"\n      Review this code file for potential issues and suggest improvements.\n      Please write the response in markdown format in a concise manner.\n    "#\n    targetFiles [\n      {\n        path "src/empty.ts"\n        content ""\n      }\n    ]\n    pullRequest {\n      title "Add empty TypeScript file"\n      body "This PR adds an empty TypeScript file as a placeholder for future development."\n      comments []\n    }\n    referenceFiles []\n  }\n}\n\ntest malformed_input_handling {\n  functions [ExecuteCommandInPullRequest]\n  args {\n    inputPrompt #"\n      Review this code file for syntax errors and potential improvements.\n      Please write the response in markdown format in a concise manner.\n    "#\n    targetFiles [\n      {\n        path "src/broken.js"\n        content #"\n          function calculateTotal(items {\n            let total = 0;\n            for (const item of items) {\n              total += item.price * item.quantity\n            }\n            return total;\n          \n          const users = [\n            { name: "John", age: 30 },\n            { name: "Jane", age: 25 }\n            { name: "Bob", age: 35 }\n          ];\n          \n          export { calculateTotal, users;\n        "#\n      }\n    ]\n    pullRequest {\n      title "Fix syntax errors in calculation module"\n      body "This PR attempts to fix several syntax errors in the calculation module that are preventing compilation."\n      comments [\n        {\n          author "ci_bot"\n          body "❌ Build failed due to syntax errors in src/broken.js"\n        }\n      ]\n    }\n    referenceFiles []\n  }\n}\n\ntest large_pr_with_multiple_files {\n  functions [ExecuteCommandInPullRequest]\n  args {\n    inputPrompt #"\n      Review these files as part of a major refactoring effort. Focus on architecture changes and potential breaking changes.\n      Please write the response in markdown format in a concise manner.\n    "#\n    targetFiles [\n      {\n        path "src/models/User.ts"\n        content #"\n          export interface User {\n            id: string;\n            email: string;\n            firstName: string;\n            lastName: string;\n            role: UserRole;\n            createdAt: Date;\n            updatedAt: Date;\n          }\n          \n          export enum UserRole {\n            ADMIN = \'admin\',\n            USER = \'user\',\n            MODERATOR = \'moderator\'\n          }\n        "#\n      },\n      {\n        path "src/services/UserService.ts"\n        content #"\n          import { User, UserRole } from \'../models/User.js\';\n          \n          export class UserService {\n            async createUser(userData: Partial<User>): Promise<User> {\n              // Implementation here\n              return {} as User;\n            }\n            \n            async getUsersByRole(role: UserRole): Promise<User[]> {\n              // Implementation here\n              return [];\n            }\n          }\n        "#\n      },\n      {\n        path "src/controllers/UserController.ts"\n        content #"\n          import { Request, Response } from \'express\';\n          import { UserService } from \'../services/UserService.js\';\n          \n          export class UserController {\n            constructor(private userService: UserService) {}\n            \n            async createUser(req: Request, res: Response): Promise<void> {\n              try {\n                const user = await this.userService.createUser(req.body);\n                res.status(201).json(user);\n              } catch (error) {\n                res.status(400).json({ error: error.message });\n              }\n            }\n          }\n        "#\n      }\n    ]\n    pullRequest {\n      title "Major refactor: Migrate to TypeScript and implement clean architecture"\n      body #"\n        This is a major refactoring effort that includes:\n        \n        ## Changes\n        - Migrate entire codebase from JavaScript to TypeScript\n        - Implement clean architecture with proper separation of concerns\n        - Add proper error handling and validation\n        - Introduce dependency injection pattern\n        \n        ## Breaking Changes\n        - API response formats have changed\n        - Database schema updates required\n        - Configuration file format changed\n        \n        ## Migration Guide\n        - Run database migrations before deployment\n        - Update client applications to use new API response formats\n        - Update environment configuration files\n      "#\n      comments [\n        {\n          author "lead_dev"\n          body "This is a significant change. Let\'s make sure we have proper rollback procedures in place."\n        },\n        {\n          author "qa_engineer"\n          body "I\'ll need at least a week to update all our test suites for this change."\n        }\n      ]\n    }\n    referenceFiles [\n      {\n        path "docs/architecture.md"\n        name "Architecture guidelines"\n        content #"\n          # Architecture Guidelines\n          \n          ## Principles\n          - Separation of concerns\n          - Dependency inversion\n          - Single responsibility\n          \n          ## Folder Structure\n          - models/ - Data models and interfaces\n          - services/ - Business logic\n          - controllers/ - HTTP request handlers\n          - repositories/ - Data access layer\n        "#\n      }\n    ]\n  }\n}\n',
-    'generators.baml': '// This helps use auto generate libraries you can use in the language of\n// your choice. You can have multiple generators if you use multiple languages.\n// Just ensure that the output_dir is different for each generator.\ngenerator target {\n    // Valid values: "python/pydantic", "typescript", "ruby/sorbet", "rest/openapi"\n    output_type "typescript"\n    \n    module_format "esm"\n\n    // Where the generated code will be saved (relative to baml_src/)\n    output_dir "../src"\n\n    // The version of the BAML package you have installed (e.g. same version as your baml-py or @boundaryml/baml).\n    // The BAML VSCode extension version should also match this version.\n    version "0.201.0"\n\n    // Valid values: "sync", "async"\n    // This controls what `b.FunctionName()` will be (sync or async).\n    default_client_mode async\n}\n'
+    'clients.baml': '// Learn more about clients at https://docs.boundaryml.com/docs/snippets/clients/overview\n\nclient<llm> CustomGPT41 {\n  provider openai\n  retry_policy Exponential\n  options {\n    model "gpt-4.1"\n    api_key env.OPENAI_API_KEY\n  }\n}\n\nclient<llm> CustomGPT41Mini {\n  provider openai\n  retry_policy Exponential\n  options {\n    model "gpt-4.1-mini"\n    api_key env.OPENAI_API_KEY\n  }\n}\nclient<llm> CustomGPT41Nano {\n  provider openai\n  retry_policy Exponential\n  options {\n    model "gpt-4.1-nano"\n    api_key env.OPENAI_API_KEY\n  }\n}\n\nclient<llm> CustomGPT4o {\n  provider openai\n  options {\n    model "gpt-4o"\n    api_key env.OPENAI_API_KEY\n  }\n}\n\nclient<llm> CustomGPT4oMini {\n  provider openai\n  retry_policy Exponential\n  options {\n    model "gpt-4o-mini"\n    api_key env.OPENAI_API_KEY\n  }\n}\n\nclient<llm> CustomSonnet {\n  provider anthropic\n  options {\n    model "claude-3-5-sonnet-20241022"\n    api_key env.ANTHROPIC_API_KEY\n  }\n}\n\n\nclient<llm> CustomHaiku {\n  provider anthropic\n  retry_policy Constant\n  options {\n    model "claude-3-haiku-20240307"\n    api_key env.ANTHROPIC_API_KEY\n  }\n}\n\n// https://docs.boundaryml.com/docs/snippets/clients/round-robin\nclient<llm> CustomFast {\n  provider round-robin\n  options {\n    // This will alternate between the two clients\n    strategy [CustomGPT4oMini, CustomHaiku]\n  }\n}\n\n// https://docs.boundaryml.com/docs/snippets/clients/fallback\nclient<llm> OpenaiFallback {\n  provider fallback\n  options {\n    // This will try the clients in order until one succeeds\n    strategy [CustomGPT4oMini, CustomGPT4oMini]\n  }\n}\n\n// https://docs.boundaryml.com/docs/snippets/clients/retry\nretry_policy Constant {\n  max_retries 3\n  // Strategy is optional\n  strategy {\n    type constant_delay\n    delay_ms 200\n  }\n}\n\nretry_policy Exponential {\n  max_retries 2\n  // Strategy is optional\n  strategy {\n    type exponential_backoff\n    delay_ms 300\n    multiplier 1.5\n    max_delay_ms 10000\n  }\n}',
+    'command.baml': '\nclass CommandOuputInPullRequest {\n  command string @description(#"\n    The name of the command that generated this output.\n  "#)\n  pull_request_comment string @description(#"\n    A comment to add to the pull request as a response to the command.\n  "#)\n  summary string @description(#"\n    A summary of the input prompt and the output response.\n  "#)\n}\n\nclass PullRequest {\n  title string\n  body string\n  comments Comment[]\n}\n\nclass Comment {\n  author string\n  body string\n}\n\nclass File {\n  name string?\n  path string\n  content string\n  patch string?\n}\n\n\n\nfunction ExecuteCommandInPullRequest(inputPrompt: string, targetFiles: File[], pullRequest: PullRequest, referenceFiles: File[], otherCommandOutputs: CommandOuputInPullRequest[]) -> CommandOuputInPullRequest {\n  // Specify a client as provider/model-name\n  // you can use custom LLM params with a custom client name from clients.baml like "client CustomHaiku"\n  client CustomGPT41 // Set OPENAI_API_KEY to use this client.\n  prompt #"\n\n    {{ _.role("system")}}\n    Execute a given prompt for given target files and a pull request and return the ouput response. Refer to the pull requeest metadata, reference files and other command outputs for context.\n\n    {{ _.role("user")}}\n\n    {{ inputPrompt }}\n\n    {% if targetFiles %}\n    <targetFiles>\n    {% for f in targetFiles %}\n    <file>\n    {% if f.name %}\n    <name>\n    {{f.name}}\n    </name>\n    {% endif %}\n    <path>\n    {{f.path}}\n    </path>\n    <content>\n    {{f.content}}\n    </content>\n    {% if f.patch %}\n    <patch>\n    {{f.patch}}\n    </patch>\n    {% endif %}\n    </file>\n    {% endfor %}\n    </targetFiles>\n    {% endif %}\n\n    {% if pullRequest %}\n    <pullRequest>\n    <title>\n    {{ pullRequest.title }}\n    </title>\n    <body>\n    {{ pullRequest.body }}\n    </body>\n    <comments>\n    {% for c in pullRequest.comments %}\n    <comment>\n    <author>\n    {{ c.author }}\n    </author>\n    <body>\n    {{ c.body }}\n    </body>\n    </comment>\n    {% endfor %}\n    </pullRequest>\n    {% endif %}\n\n\n    <referenceFiles>\n    {% for f in referenceFiles %}\n    <file>\n    {% if f.name %}\n    <name>\n    {{f.name}}\n    </name>\n    {% endif %}\n    <path>\n    {{f.path}}\n    </path>\n    <content>\n    {{f.content}}\n    </content>\n    </file>\n    {% endfor %}\n    </referenceFiles>\n\n    {% if otherCommandOutputs %}\n    <otherCommandOutputs>\n    {% for o in otherCommandOutputs %}\n    <commandOutput>\n    <command>\n    {{o.command}}\n    </command>\n    <summary>\n    {{o.summary}}\n    </summary>\n    <pullRequestComment>\n    {{o.pull_request_comment}}\n    </pullRequestComment>    \n    </commandOutput>\n    {% endfor %}\n    </otherCommandOutputs>\n    {% endif %}\n\n    {{ ctx.output_format }}\n  "#\n}\n\n\n\ntest sql_schema_review {\n  functions [ExecuteCommandInPullRequest]\n  args {\n    inputPrompt #"\n      Review this SQL schema definition. Check for normalization, naming conventions, and indexing.\n      Suggest improvements or raise warnings if there are any anti-patterns.\n      Please write the response in markdown format in a concise manner.\n    "#\n    targetFiles [\n      {\n        path "schema.sql"\n        content #"\n          CREATE TABLE user (\n            id INT PRIMARY KEY,\n            name VARCHAR(255),\n            email VARCHAR(255)\n          );\n\n          CREATE TABLE post (\n            id INT PRIMARY KEY,\n            title VARCHAR(255),\n            content TEXT,\n            user_id INT,\n            FOREIGN KEY (user_id) REFERENCES user(id)\n          );\n\n          CREATE INDEX idx_posts_user_id ON post(user_id);\n        "#\n      }\n    ]\n    pullRequest {\n      title "Add indexes to improve performance"\n      body "We need to add indexes to improve the performance of the queries."\n      comments [\n        { author "John Doe", body "Looks good to me." }\n      ]\n    }\n    referenceFiles [\n      {\n        path "guidelines/db-schema-style.md"\n        content #"\n          # Database Schema Style Guidelines\n\n          ## Table Naming\n          - Use plural nouns for table names.\n          - Use lowercase with underscores for table names.\n          - Use descriptive names that reflect the data they contain.\n        "#\n      }\n    ]\n    otherCommandOutputs []\n  }\n}\n\ntest graphql_schema_review {\n  functions [ExecuteCommandInPullRequest]\n  args {\n    inputPrompt #"\n      Review this GraphQL schema file against the provided style and naming guidelines.\n      Highlight any issues and suggest improvements.\n      Please write the response in markdown format in a concise manner.\n    "#\n    targetFiles [\n      {\n        path "schema.graphql"\n        content #"\n          type User {\n            id: ID!\n            name: String!\n            email: String!\n            posts: [Post!]!\n          }\n\n          type Post {\n            id: ID!\n            title: String!\n            content: String!\n            author: User!\n            createdAt: String!\n          }\n\n          type Query {\n            user(id: ID!): User\n            posts: [Post!]!\n          }\n\n          type Mutation {\n            createPost(title: String!, content: String!, authorId: ID!): Post!\n          }\n        "#\n      }\n    ]\n    pullRequest {\n      title "Add GraphQL schema for blog posts"\n      body "This PR introduces the initial GraphQL schema for our blog functionality, including User and Post types."\n      comments [\n        { \n          author "reviewer", \n          body "The schema looks good overall, but we should consider adding pagination for the posts query." \n        },\n        { \n          author "author", \n          body "Good point about pagination. Should I use cursor-based or offset-based pagination?" \n        }\n      ]\n    }\n    referenceFiles [\n      {\n        path "guidelines/graphql-style.md"\n        name "GraphQL style guide"\n        content #"\n          # GraphQL Style Guide\n\n          ## Naming Conventions\n          - Use PascalCase for type names\n          - Use camelCase for field names\n          - Use descriptive names that clearly indicate the field\'s purpose\n\n          ## Best Practices\n          - Always use non-null types (!) where appropriate\n          - Implement pagination for list fields that could return large datasets\n          - Use ISO 8601 format for dates (DateTime scalar type preferred over String)\n          - Group related fields into separate types when appropriate\n        "#\n      }\n    ]\n    otherCommandOutputs []\n  }\n}\n\ntest discussion_summarization {\n  functions [ExecuteCommandInPullRequest]\n  args {\n    inputPrompt #"\n      Summarize the conversation between reviewers and authors in this pull request.\n      Highlight key concerns, decisions, and remaining open questions.\n      Please write the response in markdown format in a concise manner.\n    "#\n    targetFiles [\n      {\n        path "."\n        content ""\n      }\n    ]\n    pullRequest {\n      title "Refactor authentication system to use JWT tokens"\n      body #"\n        This PR refactors our authentication system to use JWT tokens instead of session-based authentication.\n        \n        ## Changes\n        - Replace session middleware with JWT verification\n        - Add token refresh mechanism\n        - Update user login/logout endpoints\n        - Add proper error handling for expired tokens\n        \n        ## Breaking Changes\n        - Clients will need to store JWT tokens instead of relying on cookies\n        - Token expiration is now 24 hours instead of indefinite session\n      "#\n      comments [\n        {\n          author "security_reviewer"\n          body #"\n            This looks good overall, but I have a few security concerns:\n            \n            1. Are we storing the JWT secret securely?\n            2. Should we implement token blacklisting for logout?\n            3. 24 hours seems long for token expiration - maybe 1 hour with refresh tokens?\n          "#\n        },\n        {\n          author "author"\n          body #"\n            Thanks for the review! Addressing your points:\n            \n            1. Yes, JWT secret is stored in environment variables and rotated monthly\n            2. Good point about blacklisting - I\'ll add a Redis-based token blacklist\n            3. I chose 24h based on UX feedback, but we do have refresh tokens. Open to shorter if team prefers.\n          "#\n        },\n        {\n          author "frontend_dev"\n          body #"\n            How will this affect the mobile app? We\'ll need to update token storage there too.\n            Also, what\'s the migration plan for existing users?\n          "#\n        },\n        {\n          author "author"\n          body #"\n            @frontend_dev Great questions:\n            \n            - Mobile app will need updates to store tokens in secure storage\n            - Migration: existing sessions will remain valid until expiry, then users login normally\n            - I\'ll create a separate ticket for mobile app updates\n          "#\n        },\n        {\n          author "security_reviewer"\n          body #"\n            Sounds good on the blacklisting. For token expiration, let\'s go with 1 hour for now - we can always increase it later if users complain.\n            \n            Also, please make sure we\'re validating the token signature properly and checking issuer claims.\n          "#\n        },\n        {\n          author "author"\n          body #"\n            @security_reviewer Will do! I\'ll update to 1 hour expiration and add the additional JWT validation you mentioned.\n          "#\n        }\n      ]\n    }\n    referenceFiles []\n    otherCommandOutputs []\n  }\n}\n\ntest changelog_generation {\n  functions [ExecuteCommandInPullRequest]\n  args {\n    inputPrompt #"\n      Based on the code changes and PR title and description, generate or update an entry in CHANGELOG.md.\n      Maintain consistent formatting and group changes by type (e.g., Feature, Fix, Docs).\n      Please write the response in markdown format in a concise manner.\n    "#\n    targetFiles [\n      {\n        path "src/api/users.ts"\n        content #"\n          export class UserService {\n            async createUser(userData: CreateUserRequest): Promise<User> {\n              // Validate required fields\n              if (!userData.email || !userData.name) {\n                throw new Error(\'Email and name are required\');\n              }\n              \n              // Check for existing user\n              const existingUser = await this.findByEmail(userData.email);\n              if (existingUser) {\n                throw new Error(\'User with this email already exists\');\n              }\n              \n              // Create new user with hashed password\n              const hashedPassword = await bcrypt.hash(userData.password, 10);\n              return await this.userRepository.create({\n                ...userData,\n                password: hashedPassword,\n                createdAt: new Date()\n              });\n            }\n            \n            async updateUserProfile(userId: string, updates: UserProfileUpdate): Promise<User> {\n              const user = await this.userRepository.findById(userId);\n              if (!user) {\n                throw new Error(\'User not found\');\n              }\n              \n              return await this.userRepository.update(userId, {\n                ...updates,\n                updatedAt: new Date()\n              });\n            }\n          }\n        "#\n      },\n      {\n        path "src/api/auth.ts"\n        content #"\n          export class AuthService {\n            async login(email: string, password: string): Promise<{ token: string; user: User }> {\n              const user = await this.userService.findByEmail(email);\n              if (!user) {\n                throw new Error(\'Invalid credentials\');\n              }\n              \n              const isPasswordValid = await bcrypt.compare(password, user.password);\n              if (!isPasswordValid) {\n                throw new Error(\'Invalid credentials\');\n              }\n              \n              // Generate JWT token with 1 hour expiration\n              const token = jwt.sign(\n                { userId: user.id, email: user.email },\n                process.env.JWT_SECRET!,\n                { expiresIn: \'1h\' }\n              );\n              \n              return { token, user: this.sanitizeUser(user) };\n            }\n          }\n        "#\n      }\n    ]\n    pullRequest {\n      title "Add user management and authentication APIs"\n      body #"\n        This PR adds comprehensive user management and authentication functionality:\n\n        ## Features Added\n        - User registration with validation and duplicate checking\n        - User profile updates\n        - JWT-based authentication with 1-hour token expiration\n        - Password hashing using bcrypt\n        - Proper error handling for invalid credentials\n\n        ## Security Improvements\n        - Passwords are hashed before storage\n        - JWT tokens have reasonable expiration times\n        - Input validation for required fields\n        - Sanitized user data in responses\n\n        ## Breaking Changes\n        None - this is new functionality.\n\n        ## Testing\n        - Added unit tests for UserService and AuthService\n        - Integration tests for auth endpoints\n      "#\n      comments [\n        {\n          author "reviewer"\n          body "The implementation looks solid. Are we planning to add rate limiting for the auth endpoints?"\n        },\n        {\n          author "author"\n          body "Good point! I\'ll add that in a follow-up PR focused on security enhancements."\n        }\n      ]\n    }\n    referenceFiles [\n      {\n        path "CHANGELOG.md"\n        content #"\n          # Changelog\n\n          All notable changes to this project will be documented in this file.\n\n          The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),\n          and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n\n          ## [Unreleased]\n\n          ## [1.2.0] - 2024-01-15\n\n          ### Added\n          - Database migration system\n          - Basic user model and repository\n\n          ### Fixed\n          - Configuration loading bug in production environment\n\n          ## [1.1.0] - 2024-01-10\n\n          ### Added\n          - Initial project setup\n          - Basic Express.js server configuration\n          - Environment variable management\n        "#\n      },\n      {\n        path "https://example.com/templates/changelog-format.md"\n        name "Changelog formatting template"\n        content #"\n          # Changelog Format Guidelines\n\n          ## Structure\n          - Use semantic versioning (MAJOR.MINOR.PATCH)\n          - Group changes by type: Added, Changed, Deprecated, Removed, Fixed, Security\n          - List changes in reverse chronological order\n\n          ## Entry Format\n          ```markdown\n          ### Added\n          - New feature description [#123](link-to-issue)\n\n          ### Fixed\n          - Bug fix description [#456](link-to-pr)\n          ```\n\n          ## Best Practices\n          - Write clear, concise descriptions\n          - Link to relevant issues or PRs when available\n          - Focus on user-facing changes\n          - Avoid technical implementation details\n        "#\n      }\n    ]\n    otherCommandOutputs []\n    \n  }\n}\n\n\ntest large_pr_with_multiple_files {\n  functions [ExecuteCommandInPullRequest]\n  args {\n    inputPrompt #"\n      Review these files as part of a major refactoring effort. Focus on architecture changes and potential breaking changes.\n      Please write the response in markdown format in a concise manner.\n    "#\n    targetFiles [\n      {\n        path "src/models/User.ts"\n        content #"\n          export interface User {\n            id: string;\n            email: string;\n            firstName: string;\n            lastName: string;\n            role: UserRole;\n            createdAt: Date;\n            updatedAt: Date;\n          }\n          \n          export enum UserRole {\n            ADMIN = \'admin\',\n            USER = \'user\',\n            MODERATOR = \'moderator\'\n          }\n        "#\n      },\n      {\n        path "src/services/UserService.ts"\n        content #"\n          import { User, UserRole } from \'../models/User.js\';\n          \n          export class UserService {\n            async createUser(userData: Partial<User>): Promise<User> {\n              // Implementation here\n              return {} as User;\n            }\n            \n            async getUsersByRole(role: UserRole): Promise<User[]> {\n              // Implementation here\n              return [];\n            }\n          }\n        "#\n      },\n      {\n        path "src/controllers/UserController.ts"\n        content #"\n          import { Request, Response } from \'express\';\n          import { UserService } from \'../services/UserService.js\';\n          \n          export class UserController {\n            constructor(private userService: UserService) {}\n            \n            async createUser(req: Request, res: Response): Promise<void> {\n              try {\n                const user = await this.userService.createUser(req.body);\n                res.status(201).json(user);\n              } catch (error) {\n                res.status(400).json({ error: error.message });\n              }\n            }\n          }\n        "#\n      }\n    ]\n    pullRequest {\n      title "Major refactor: Migrate to TypeScript and implement clean architecture"\n      body #"\n        This is a major refactoring effort that includes:\n        \n        ## Changes\n        - Migrate entire codebase from JavaScript to TypeScript\n        - Implement clean architecture with proper separation of concerns\n        - Add proper error handling and validation\n        - Introduce dependency injection pattern\n        \n        ## Breaking Changes\n        - API response formats have changed\n        - Database schema updates required\n        - Configuration file format changed\n        \n        ## Migration Guide\n        - Run database migrations before deployment\n        - Update client applications to use new API response formats\n        - Update environment configuration files\n      "#\n      comments [\n        {\n          author "lead_dev"\n          body "This is a significant change. Let\'s make sure we have proper rollback procedures in place."\n        },\n        {\n          author "qa_engineer"\n          body "I\'ll need at least a week to update all our test suites for this change."\n        }\n      ]\n    }\n    referenceFiles [\n      {\n        path "docs/architecture.md"\n        name "Architecture guidelines"\n        content #"\n          # Architecture Guidelines\n          \n          ## Principles\n          - Separation of concerns\n          - Dependency inversion\n          - Single responsibility\n          \n          ## Folder Structure\n          - models/ - Data models and interfaces\n          - services/ - Business logic\n          - controllers/ - HTTP request handlers\n          - repositories/ - Data access layer\n        "#\n      }\n    ]\n    otherCommandOutputs []\n  }\n}\n',
+    'generators.baml': '// This helps use auto generate libraries you can use in the language of\n// your choice. You can have multiple generators if you use multiple languages.\n// Just ensure that the output_dir is different for each generator.\ngenerator target {\n    // Valid values: "python/pydantic", "typescript", "ruby/sorbet", "rest/openapi"\n    output_type "typescript"\n    \n    module_format "esm"\n\n    // Where the generated code will be saved (relative to baml_src/)\n    output_dir "../src"\n\n    // The version of the BAML package you have installed (e.g. same version as your baml-py or @boundaryml/baml).\n    // The BAML VSCode extension version should also match this version.\n    version "0.201.0"\n\n    // Valid values: "sync", "async"\n    // This controls what `b.FunctionName()` will be (sync or async).\n    default_client_mode async\n}\n',
+    'plan.baml': '\nclass Command {\n  name string\n  description string\n  instructions CommandInstruction\n}\n\nclass CommandInstruction {\n  applyTo string?\n  prompt string\n  files CommandReferenceFile[]\n  modifiedOnly bool?\n}\n\nclass CommandReferenceFile {\n  name string?\n  path string\n}\n\nclass PullRequestForPlan {\n  title string\n  body string\n  comments PullRequestCommentForPlan[]\n  files PullRequestFileForPlan[]\n}\n\nclass PullRequestCommentForPlan {\n  author string\n  body string\n}\n\nclass PullRequestFileForPlan {\n  filename string\n  status "added" | "modified" | "removed" | "renamed"\n}\n\nclass CommandPlan {\n  name string\n  loadFiles LoadFileIntoContext[]\n  loadCommandOutputs LoadCommandOutputIntoContext[]\n}\n\nclass LoadFileIntoContext {\n  reason string @description(#"\n    The reason for loading the file into the context\n  "#)\n  fullContent bool @description(#"\n    Whether to load the full content of the file or just the patch(diff)\n  "#)\n  path string @description(#"\n    The path of the file to load into the context\n  "#)\n}\n\nclass LoadCommandOutputIntoContext {\n  reason string @description(#"\n    The reason for loading the command output into the context\n  "#)\n  commandName string @description(#"\n    The name of the command that generated the output\n  "#)\n}\n\nclass PlanResult {\n  plans CommandPlan[]\n}\n\nfunction Plan(pullRequest: PullRequestForPlan, commands: Command[]) -> PlanResult {\n  client CustomGPT41Mini // Set OPENAI_API_KEY to use this client.\n  prompt #"\n    {{ _.role("system")}}\n    Plan the execution of the commands for the given pull request.\n\n    {{ _.role("user")}}\n\n    <pullRequest>\n    <title>\n    {{ pullRequest.title }}\n    </title>\n    <body>\n    {{ pullRequest.body }}\n    </body>\n    <files>\n    {% for f in pullRequest.files %}\n    <file>\n    {{ f.filename }}\n    </file>\n    {% endfor %}\n    </files>\n    </pullRequest>\n\n    The following commands are defined:\n    ```yaml\n    {% for c in commands %}\n    {{ c.name }}:\n      description:\n        {{ c.description }}\n      instructions:\n        - applyTo: \'{{ c.instructions.applyTo }}\'\n          modifiedOnly: {{ c.instructions.modifiedOnly }}\n          prompt: |\n            {{ c.instructions.prompt }}\n\n            {% if c.instructions.files %}\n            files:\n            {% for f in c.instructions.files %}            \n              - path: \'{{ f.path }}\'\n                {% if f.name %}\n                name:  \'{{ f.name }}\'   \n                {% endif %}\n              {% endfor %}\n            {% endif %}              \n    {% endfor %}\n    ```\n\n    {{ ctx.output_format }}\n  "#\n}\n\ntest plan_single_command {\n  functions [Plan]\n  args {\n    pullRequest {\n      title "Add indexes to improve performance"\n      body "We need to add indexes to improve the performance of the queries."\n      comments []\n      files [\n        {\n          filename "examples/sql-database/schema.sql"\n          status "modified"\n        }\n      ]\n    }\n    commands [\n      {\n        name "review-database-schema"\n        description "Reviews database schema files for consistency, normalization, and naming conventions."\n        instructions {\n          modifiedOnly true\n          prompt "Review this SQL schema definition. Check for normalization, naming conventions, and indexing. Suggest improvements or raise warnings if there are any anti-patterns."\n          files [\n            {\n              path "https://github.com/...../guidelines/db-schema-style.md"\n              name "Database schema guidelines"\n            }\n          ]\n        }\n      }\n    ]\n  }\n}\n\ntest plan_multiple_commands {\n  functions [Plan]\n  args {\n    pullRequest {\n      title "Add feature xyz"\n      body "We need to add feature xyz to the application."\n      comments []\n      files [\n        {\n          filename "src/feature-xyz.ts"\n          status "added"\n        }\n        {\n          filename "src/feature-xyz.spec.ts"\n          status "added"\n        }\n        {\n          filename "src/database/schema.sql"\n          status "modified"\n        }\n      ]\n    }\n    commands [\n      {\n        name "review-database-schema"\n        description "Reviews database schema files for consistency, normalization, and naming conventions."\n        instructions {\n          applyTo "examples/sql-database/**/*.sql"\n          modifiedOnly true\n          prompt "Review this SQL schema definition. Check for normalization, naming conventions, and indexing. Suggest improvements or raise warnings if there are any anti-patterns."\n          files [\n            {\n              path "https://github.com/...../guidelines/db-schema-style.md"\n              name "Database schema guidelines"\n            }\n          ]\n        }\n      }\n      {\n        name "summarize-reviews"\n        description "Summarizes the reviews of the pull request."\n        instructions {\n          applyTo "none"\n          prompt #"\n            Generate a summary of the reviews of the pull request.\n          "#\n          files []\n        }\n      }\n    ]\n  }\n}\n'
 };
 const getBamlFiles = () => {
     return fileMap;
@@ -43393,7 +43462,7 @@ class BamlAsyncClient {
     get parseStream() {
         return this.llmStreamParser;
     }
-    async ExecuteCommandInPullRequest(inputPrompt, targetFiles, pullRequest, referenceFiles, __baml_options__) {
+    async ExecuteCommandInPullRequest(inputPrompt, targetFiles, pullRequest, referenceFiles, otherCommandOutputs, __baml_options__) {
         try {
             const options = { ...this.bamlOptions, ...(__baml_options__ || {}) };
             const collector = options.collector
@@ -43409,7 +43478,30 @@ class BamlAsyncClient {
                 inputPrompt: inputPrompt,
                 targetFiles: targetFiles,
                 pullRequest: pullRequest,
-                referenceFiles: referenceFiles
+                referenceFiles: referenceFiles,
+                otherCommandOutputs: otherCommandOutputs
+            }, this.ctxManager.cloneContext(), options.tb?.__tb(), options.clientRegistry, collector, env);
+            return raw.parsed(false);
+        }
+        catch (error) {
+            throw bamlExports.toBamlError(error);
+        }
+    }
+    async Plan(pullRequest, commands, __baml_options__) {
+        try {
+            const options = { ...this.bamlOptions, ...(__baml_options__ || {}) };
+            const collector = options.collector
+                ? Array.isArray(options.collector)
+                    ? options.collector
+                    : [options.collector]
+                : [];
+            const rawEnv = __baml_options__?.env
+                ? { ...process.env, ...__baml_options__.env }
+                : { ...process.env };
+            const env = Object.fromEntries(Object.entries(rawEnv).filter(([_, value]) => value !== undefined));
+            const raw = await this.runtime.callFunction('Plan', {
+                pullRequest: pullRequest,
+                commands: commands
             }, this.ctxManager.cloneContext(), options.tb?.__tb(), options.clientRegistry, collector, env);
             return raw.parsed(false);
         }
@@ -43427,7 +43519,7 @@ class BamlStreamClient {
         this.ctxManager = ctxManager;
         this.bamlOptions = bamlOptions || {};
     }
-    ExecuteCommandInPullRequest(inputPrompt, targetFiles, pullRequest, referenceFiles, __baml_options__) {
+    ExecuteCommandInPullRequest(inputPrompt, targetFiles, pullRequest, referenceFiles, otherCommandOutputs, __baml_options__) {
         try {
             const options = { ...this.bamlOptions, ...(__baml_options__ || {}) };
             const collector = options.collector
@@ -43443,7 +43535,30 @@ class BamlStreamClient {
                 inputPrompt: inputPrompt,
                 targetFiles: targetFiles,
                 pullRequest: pullRequest,
-                referenceFiles: referenceFiles
+                referenceFiles: referenceFiles,
+                otherCommandOutputs: otherCommandOutputs
+            }, undefined, this.ctxManager.cloneContext(), options.tb?.__tb(), options.clientRegistry, collector, env);
+            return new bamlExports.BamlStream(raw, (a) => a, (a) => a, this.ctxManager.cloneContext());
+        }
+        catch (error) {
+            throw bamlExports.toBamlError(error);
+        }
+    }
+    Plan(pullRequest, commands, __baml_options__) {
+        try {
+            const options = { ...this.bamlOptions, ...(__baml_options__ || {}) };
+            const collector = options.collector
+                ? Array.isArray(options.collector)
+                    ? options.collector
+                    : [options.collector]
+                : [];
+            const rawEnv = __baml_options__?.env
+                ? { ...process.env, ...__baml_options__.env }
+                : { ...process.env };
+            const env = Object.fromEntries(Object.entries(rawEnv).filter(([_, value]) => value !== undefined));
+            const raw = this.runtime.streamFunction('Plan', {
+                pullRequest: pullRequest,
+                commands: commands
             }, undefined, this.ctxManager.cloneContext(), options.tb?.__tb(), options.clientRegistry, collector, env);
             return new bamlExports.BamlStream(raw, (a) => a, (a) => a, this.ctxManager.cloneContext());
         }
@@ -43457,18 +43572,98 @@ const b = new BamlAsyncClient(DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOI
 class CommandExecutor {
     githubService;
     llmClients;
-    constructor(githubService, llmClients = []) {
+    debug;
+    constructor(githubService, llmClients, debug = false) {
         this.githubService = githubService;
         this.llmClients = llmClients;
+        this.debug = debug;
     }
-    async executeCommand(commandName, commandConfig, changedFiles, prInfo) {
+    async executeCommand(commandName, commandConfig, changedFiles, prInfo, otherCommandOutputs = [], executionPlan) {
         coreExports.info(`Executing command: ${commandName}`);
         coreExports.info(`Description: ${commandConfig.description}`);
+        let combinedComment = '';
+        let combinedSummary = '';
         for (const instruction of commandConfig.instructions) {
-            await this.executeInstruction(commandName, commandConfig, instruction, changedFiles, prInfo);
+            const result = await this.executeInstruction(commandName, commandConfig, instruction, changedFiles, prInfo, otherCommandOutputs, executionPlan);
+            if (result) {
+                combinedComment += result.pull_request_comment + '\n\n';
+                combinedSummary += result.summary + ' ';
+            }
+        }
+        if (combinedComment || combinedSummary) {
+            return {
+                command: commandName,
+                pull_request_comment: combinedComment.trim(),
+                summary: combinedSummary.trim()
+            };
+        }
+        return null;
+    }
+    async planCommands(commands, changedFiles, prInfo) {
+        coreExports.info('Planning command execution...');
+        const prComments = await this.githubService.getPullRequestComments(prInfo);
+        // Convert to BAML format
+        const pullRequestForPlan = {
+            title: prInfo.title,
+            body: prInfo.body,
+            comments: prComments.map((comment) => ({
+                author: comment.author,
+                body: comment.body
+            })),
+            files: changedFiles.map((file) => ({
+                filename: file.filename,
+                status: file.status
+            }))
+        };
+        const commandsForPlan = Object.entries(commands).map(([name, config]) => ({
+            name,
+            description: config.description,
+            instructions: {
+                applyTo: config.instructions[0]?.applyTo,
+                prompt: config.instructions[0]?.prompt || '',
+                files: config.instructions[0]?.files?.map((f) => ({
+                    name: f.name,
+                    path: f.path
+                })) || [],
+                modifiedOnly: config.instructions[0]?.modifiedOnly
+            }
+        }));
+        try {
+            const collector = new bamlExports.Collector('llm-command-action-planning');
+            const clientRegistry = new bamlExports.ClientRegistry();
+            // Setup small LLM client for planning
+            const planningClientConfig = this.llmClients.small;
+            const clientName = 'llm-command-action-planning-client';
+            // Resolve environment variables in api_key
+            const options = { ...planningClientConfig.options };
+            if (options.api_key && options.api_key.startsWith('env.')) {
+                const envVar = options.api_key.substring(4);
+                options.api_key = process.env[envVar];
+            }
+            clientRegistry.addLlmClient(clientName, planningClientConfig.provider, options);
+            clientRegistry.setPrimary(clientName);
+            const planResult = await b.Plan(pullRequestForPlan, commandsForPlan, {
+                clientRegistry,
+                collector
+            });
+            coreExports.info(`Planning Usage: ${collector.usage}`);
+            // Convert plan result to a more usable format
+            const executionPlan = {};
+            for (const plan of planResult.plans) {
+                executionPlan[plan.name] = {
+                    loadFiles: plan.loadFiles,
+                    loadCommandOutputs: plan.loadCommandOutputs
+                };
+            }
+            coreExports.info(`Generated execution plan for ${Object.keys(executionPlan).length} commands`);
+            return executionPlan;
+        }
+        catch (error) {
+            coreExports.warning(`Planning failed, falling back to default execution: ${error}`);
+            return {};
         }
     }
-    async executeInstruction(commandName, commandConfig, instruction, changedFiles, prInfo) {
+    async executeInstruction(commandName, commandConfig, instruction, changedFiles, prInfo, otherCommandOutputs = [], executionPlan) {
         let targetFiles = [];
         const applyTo = instruction.applyTo ?? 'none';
         if (applyTo != 'none') {
@@ -43483,20 +43678,61 @@ class CommandExecutor {
                     await this.githubService.addPullRequestComment(prInfo, noFilesComment, commandName);
                 }
                 coreExports.info(`No files match pattern "${applyTo}" for command ${commandName}`);
-                return;
+                return null;
             }
             coreExports.info(`Found ${targetFiles.length} matching files for pattern "${applyTo}"`);
         }
+        // Load reference files from instruction configuration
         const referenceFiles = await this.loadReferenceFiles(instruction.files || []);
+        // Track already loaded file paths to avoid duplicates
+        const loadedFilePaths = new Set(referenceFiles.map((f) => f.path));
+        // Load additional files from execution plan if available
+        if (executionPlan?.loadFiles) {
+            coreExports.info(`Processing ${executionPlan.loadFiles.length} files from execution plan`);
+            for (const fileToLoad of executionPlan.loadFiles) {
+                // Skip if file is already loaded
+                if (loadedFilePaths.has(fileToLoad.path)) {
+                    coreExports.info(`Skipping duplicate file: ${fileToLoad.path}`);
+                    continue;
+                }
+                try {
+                    const content = await this.githubService.getReferenceFileContent(fileToLoad.path);
+                    // If fullContent is false, try to get patch instead of full content
+                    let fileContent = content;
+                    if (!fileToLoad.fullContent) {
+                        const changedFile = changedFiles.find((f) => f.filename === fileToLoad.path);
+                        if (changedFile?.patch) {
+                            fileContent = changedFile.patch;
+                        }
+                    }
+                    referenceFiles.push({
+                        name: fileToLoad.reason,
+                        path: fileToLoad.path,
+                        content: fileContent
+                    });
+                    loadedFilePaths.add(fileToLoad.path);
+                    coreExports.info(`Loaded additional file: ${fileToLoad.path} (${fileToLoad.reason})`);
+                }
+                catch (error) {
+                    coreExports.warning(`Failed to load planned file ${fileToLoad.path}: ${error}`);
+                }
+            }
+        }
+        // Filter command outputs based on execution plan if available
+        let relevantCommandOutputs = otherCommandOutputs;
+        if (executionPlan?.loadCommandOutputs &&
+            executionPlan.loadCommandOutputs.length > 0) {
+            const commandNamesToInclude = new Set(executionPlan.loadCommandOutputs.map((cmd) => cmd.commandName));
+            relevantCommandOutputs = otherCommandOutputs.filter((output) => commandNamesToInclude.has(output.command));
+            coreExports.info(`Including outputs from ${relevantCommandOutputs.length} commands based on execution plan`);
+        }
         const prComments = await this.githubService.getPullRequestComments(prInfo);
         const pullRequest = {
             title: prInfo.title,
             body: prInfo.body,
             comments: prComments.map((comment) => ({
                 author: comment.author,
-                body: comment.body,
-                isFromLLMAction: comment.isFromLLMAction,
-                commandName: comment.commandName
+                body: comment.body
             }))
         };
         const bamlTargetFiles = targetFiles.map((file) => ({
@@ -43509,48 +43745,35 @@ class CommandExecutor {
             coreExports.info(`Executing LLM function for command ${commandName}`);
             const collector = new bamlExports.Collector('llm-command-action');
             const clientRegistry = new bamlExports.ClientRegistry();
-            // Setup LLM clients from configuration
-            if (this.llmClients.length > 0) {
-                for (let i = 0; i < this.llmClients.length; i++) {
-                    const clientConfig = this.llmClients[i];
-                    const clientName = `llm-command-action-client-${i}`;
-                    // Resolve environment variables in api_key
-                    const options = { ...clientConfig.options };
-                    if (options.api_key && options.api_key.startsWith('env.')) {
-                        const envVar = options.api_key.substring(4);
-                        options.api_key = process.env[envVar];
-                    }
-                    clientRegistry.addLlmClient(clientName, clientConfig.provider, options);
-                    // Set the first client as primary
-                    if (i === 0) {
-                        clientRegistry.setPrimary(clientName);
-                    }
-                }
+            const clientConfig = this.llmClients.large;
+            const clientName = 'llm-command-action-client';
+            // Resolve environment variables in api_key
+            const options = { ...clientConfig.options };
+            if (options.api_key && options.api_key.startsWith('env.')) {
+                const envVar = options.api_key.substring(4);
+                options.api_key = process.env[envVar];
             }
-            else {
-                // Fallback to hardcoded OpenAI client if no configuration provided
-                const provider = 'openai';
-                const apiKey = process.env.OPENAI_API_KEY;
-                const model = 'gpt-4o-mini';
-                clientRegistry.addLlmClient('llm-command-action-client', provider, {
-                    api_key: apiKey,
-                    model
-                });
-                clientRegistry.setPrimary('llm-command-action-client');
-            }
-            const result = await b.ExecuteCommandInPullRequest(instruction.prompt, bamlTargetFiles, pullRequest, referenceFiles, {
+            clientRegistry.addLlmClient(clientName, clientConfig.provider, options);
+            clientRegistry.setPrimary(clientName);
+            const result = await b.ExecuteCommandInPullRequest(instruction.prompt, bamlTargetFiles, pullRequest, referenceFiles, relevantCommandOutputs, {
                 clientRegistry,
                 collector
             });
             coreExports.info(`LLM Usage: ${collector.usage}`);
             if (result.pull_request_comment) {
                 const commentHeader = `## 🤖 ${commandName}\n\n${commandConfig.description}\n\n`;
-                const fullComment = commentHeader + result.pull_request_comment;
+                let fullComment = commentHeader + result.pull_request_comment;
+                // Add debug information if enabled
+                if (this.debug) {
+                    const debugInfo = `\n\n<!-- llm-command-action:debug\nToken Usage: ${collector.usage}\nCommand: ${commandName}\nTimestamp: ${new Date().toISOString()}\n-->`;
+                    fullComment += debugInfo;
+                }
                 await this.githubService.addPullRequestComment(prInfo, fullComment, commandName);
                 coreExports.info(`Posted comment for command ${commandName}`);
             }
             coreExports.setOutput(`${commandName}_summary`, result.summary);
             coreExports.setOutput(`${commandName}_comment`, result.pull_request_comment);
+            return result;
         }
         catch (error) {
             coreExports.error(`Failed to execute command ${commandName}: ${error}`);
@@ -43673,8 +43896,8 @@ async function run() {
     try {
         const commandsInput = coreExports.getInput('commands', { required: true });
         const githubToken = coreExports.getInput('github_token') || process.env.GITHUB_TOKEN;
-        const commandFromComment = coreExports.getInput('command_from_comment') === 'true';
         const configPath = coreExports.getInput('config_path') || '.llm-commands.yaml';
+        const debug = coreExports.getInput('debug') === 'true';
         if (!githubToken) {
             throw new Error('GitHub token is required');
         }
@@ -43682,12 +43905,17 @@ async function run() {
         coreExports.info(`Repository: ${githubExports.context.repo.owner}/${githubExports.context.repo.repo}`);
         const githubService = new GitHubService(githubToken, githubExports.context);
         const config = await loadConfig(process.cwd(), configPath);
-        const executor = new CommandExecutor(githubService, config['llm-clients'] || []);
+        const executor = new CommandExecutor(githubService, config['llm-clients'], debug);
         coreExports.info(`Loaded configuration with ${Object.keys(config.commands).length} commands`);
         let requestedCommands;
-        if (commandFromComment && githubExports.context.eventName === 'issue_comment') {
-            requestedCommands = parseCommandFromComment(githubExports.context.payload.comment
-                ?.body || '', config.handle);
+        if (githubExports.context.eventName === 'issue_comment') {
+            // Validate that this is a PR comment, not an issue comment
+            const payload = githubExports.context.payload;
+            if (!payload.issue?.pull_request) {
+                coreExports.info('Comment is not on a pull request, skipping');
+                return;
+            }
+            requestedCommands = parseCommandFromComment(payload.comment?.body || '', config.handle);
         }
         else {
             requestedCommands = commandsInput
@@ -43699,7 +43927,8 @@ async function run() {
             coreExports.warning('No commands specified or found in comment');
             return;
         }
-        const commandsToRun = getCommandsToRun(config, requestedCommands);
+        const fromComment = githubExports.context.eventName === 'issue_comment';
+        const commandsToRun = getCommandsToRun(config, requestedCommands, fromComment);
         if (commandsToRun.length === 0) {
             coreExports.warning(`No valid commands found. Available commands: ${Object.keys(config.commands).join(', ')}`);
             return;
@@ -43712,14 +43941,33 @@ async function run() {
             coreExports.setOutput('commands_summary', 'No commands executed - not in PR context');
             return;
         }
+        // Auto-post available slash commands on PR open (not for comment events)
+        if (githubExports.context.eventName === 'pull_request' &&
+            githubExports.context.payload.action === 'opened') {
+            const commentEnabledCommands = getCommentEnabledCommands(config);
+            if (commentEnabledCommands.length > 0) {
+                await postAvailableCommandsComment(githubService, commentEnabledCommands, prInfo, config.handle);
+            }
+        }
         const changedFiles = await githubService.getChangedFiles(prInfo);
         coreExports.info(`Found ${changedFiles.length} changed files in PR #${prInfo.number}`);
+        // Generate execution plan for all commands
+        const commandsToExecute = commandsToRun.reduce((acc, name) => {
+            acc[name] = config.commands[name];
+            return acc;
+        }, {});
+        const executionPlan = await executor.planCommands(commandsToExecute, changedFiles, prInfo);
         const executedCommands = [];
         const summaries = [];
+        const commandOutputs = [];
         for (const commandName of commandsToRun) {
             try {
                 const commandConfig = config.commands[commandName];
-                await executor.executeCommand(commandName, commandConfig, changedFiles, prInfo);
+                const commandPlan = executionPlan[commandName];
+                const commandOutput = await executor.executeCommand(commandName, commandConfig, changedFiles, prInfo, commandOutputs, commandPlan);
+                if (commandOutput) {
+                    commandOutputs.push(commandOutput);
+                }
                 executedCommands.push(commandName);
                 summaries.push(`✅ ${commandName}: ${commandConfig.description}`);
                 coreExports.info(`Successfully executed command: ${commandName}`);
@@ -43762,6 +44010,32 @@ function parseCommandFromComment(commentBody, handle) {
         commands.push(match[1]);
     }
     return commands;
+}
+async function postAvailableCommandsComment(githubService, commands, prInfo, handle) {
+    const slashCommands = commands
+        .map((cmd) => `- \`/${cmd.name}\` - ${cmd.description}`)
+        .join('\n');
+    const handleExample = handle
+        ? `\`${handle} "your custom request"\``
+        : '`@llm_command "your custom request"`';
+    const commentBody = `## 🤖 LLM Commands Available
+
+You can trigger the following commands by commenting on this PR:
+
+**Slash Commands:**
+${slashCommands}
+
+**Custom Handle:**
+- ${handleExample}
+
+Simply comment with any of the above formats to execute the corresponding command!`;
+    try {
+        await githubService.addPullRequestComment(prInfo, commentBody);
+        coreExports.info(`Posted available commands comment with ${commands.length} commands`);
+    }
+    catch (error) {
+        coreExports.warning(`Failed to post available commands comment: ${error}`);
+    }
 }
 
 /**

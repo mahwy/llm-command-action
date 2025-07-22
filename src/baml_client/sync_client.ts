@@ -35,10 +35,20 @@ import type {
 } from './types.js'
 import type * as types from './types.js'
 import type {
+  Command,
+  CommandInstruction,
   CommandOuputInPullRequest,
+  CommandPlan,
+  CommandReferenceFile,
   Comment,
   File,
-  PullRequest
+  LoadCommandOutputIntoContext,
+  LoadFileIntoContext,
+  PlanResult,
+  PullRequest,
+  PullRequestCommentForPlan,
+  PullRequestFileForPlan,
+  PullRequestForPlan
 } from './types.js'
 import type TypeBuilder from './type_builder.js'
 import { HttpRequest, HttpStreamRequest } from './sync_request.js'
@@ -119,6 +129,7 @@ export class BamlSyncClient {
     targetFiles: types.File[],
     pullRequest: types.PullRequest,
     referenceFiles: types.File[],
+    otherCommandOutputs: types.CommandOuputInPullRequest[],
     __baml_options__?: BamlCallOptions
   ): types.CommandOuputInPullRequest {
     try {
@@ -143,7 +154,8 @@ export class BamlSyncClient {
           inputPrompt: inputPrompt,
           targetFiles: targetFiles,
           pullRequest: pullRequest,
-          referenceFiles: referenceFiles
+          referenceFiles: referenceFiles,
+          otherCommandOutputs: otherCommandOutputs
         },
         this.ctxManager.cloneContext(),
         options.tb?.__tb(),
@@ -152,6 +164,45 @@ export class BamlSyncClient {
         env
       )
       return raw.parsed(false) as types.CommandOuputInPullRequest
+    } catch (error: any) {
+      throw toBamlError(error)
+    }
+  }
+
+  Plan(
+    pullRequest: types.PullRequestForPlan,
+    commands: types.Command[],
+    __baml_options__?: BamlCallOptions
+  ): types.PlanResult {
+    try {
+      const options = { ...this.bamlOptions, ...(__baml_options__ || {}) }
+      const collector = options.collector
+        ? Array.isArray(options.collector)
+          ? options.collector
+          : [options.collector]
+        : []
+      const rawEnv = __baml_options__?.env
+        ? { ...process.env, ...__baml_options__.env }
+        : { ...process.env }
+      const env: Record<string, string> = Object.fromEntries(
+        Object.entries(rawEnv).filter(([_, value]) => value !== undefined) as [
+          string,
+          string
+        ][]
+      )
+      const raw = this.runtime.callFunctionSync(
+        'Plan',
+        {
+          pullRequest: pullRequest,
+          commands: commands
+        },
+        this.ctxManager.cloneContext(),
+        options.tb?.__tb(),
+        options.clientRegistry,
+        collector,
+        env
+      )
+      return raw.parsed(false) as types.PlanResult
     } catch (error: any) {
       throw toBamlError(error)
     }

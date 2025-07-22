@@ -21,10 +21,20 @@ $ pnpm add @boundaryml/baml
 import type { Image, Audio } from '@boundaryml/baml'
 import type { Checked, Check } from './types.js'
 import type {
+  Command,
+  CommandInstruction,
   CommandOuputInPullRequest,
+  CommandPlan,
+  CommandReferenceFile,
   Comment,
   File,
-  PullRequest
+  LoadCommandOutputIntoContext,
+  LoadFileIntoContext,
+  PlanResult,
+  PullRequest,
+  PullRequestCommentForPlan,
+  PullRequestFileForPlan,
+  PullRequestForPlan
 } from './types.js'
 import type * as types from './types.js'
 
@@ -41,15 +51,34 @@ export interface StreamState<T> {
 }
 
 export namespace partial_types {
+  export interface Command {
+    name?: string | null
+    description?: string | null
+    instructions?: CommandInstruction | null
+  }
+  export interface CommandInstruction {
+    applyTo?: string | null
+    prompt?: string | null
+    files: CommandReferenceFile[]
+    modifiedOnly?: boolean | null
+  }
   export interface CommandOuputInPullRequest {
+    command?: string | null
     pull_request_comment?: string | null
     summary?: string | null
+  }
+  export interface CommandPlan {
+    name?: string | null
+    loadFiles: LoadFileIntoContext[]
+    loadCommandOutputs: LoadCommandOutputIntoContext[]
+  }
+  export interface CommandReferenceFile {
+    name?: string | null
+    path?: string | null
   }
   export interface Comment {
     author?: string | null
     body?: string | null
-    isFromLLMAction?: boolean | null
-    commandName?: string | null
   }
   export interface File {
     name?: string | null
@@ -57,9 +86,35 @@ export namespace partial_types {
     content?: string | null
     patch?: string | null
   }
+  export interface LoadCommandOutputIntoContext {
+    reason?: string | null
+    commandName?: string | null
+  }
+  export interface LoadFileIntoContext {
+    reason?: string | null
+    fullContent?: boolean | null
+    path?: string | null
+  }
+  export interface PlanResult {
+    plans: CommandPlan[]
+  }
   export interface PullRequest {
     title?: string | null
     body?: string | null
     comments: Comment[]
+  }
+  export interface PullRequestCommentForPlan {
+    author?: string | null
+    body?: string | null
+  }
+  export interface PullRequestFileForPlan {
+    filename?: string | null
+    status?: 'added' | 'modified' | 'removed' | 'renamed' | null
+  }
+  export interface PullRequestForPlan {
+    title?: string | null
+    body?: string | null
+    comments: PullRequestCommentForPlan[]
+    files: PullRequestFileForPlan[]
   }
 }

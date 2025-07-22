@@ -29,10 +29,20 @@ import { toBamlError, HTTPRequest } from '@boundaryml/baml'
 import type { Checked, Check } from './types.js'
 import type * as types from './types.js'
 import type {
+  Command,
+  CommandInstruction,
   CommandOuputInPullRequest,
+  CommandPlan,
+  CommandReferenceFile,
   Comment,
   File,
-  PullRequest
+  LoadCommandOutputIntoContext,
+  LoadFileIntoContext,
+  PlanResult,
+  PullRequest,
+  PullRequestCommentForPlan,
+  PullRequestFileForPlan,
+  PullRequestForPlan
 } from './types.js'
 import type TypeBuilder from './type_builder.js'
 
@@ -53,6 +63,7 @@ export class AsyncHttpRequest {
     targetFiles: types.File[],
     pullRequest: types.PullRequest,
     referenceFiles: types.File[],
+    otherCommandOutputs: types.CommandOuputInPullRequest[],
     __baml_options__?: BamlCallOptions
   ): Promise<HTTPRequest> {
     try {
@@ -71,7 +82,40 @@ export class AsyncHttpRequest {
           inputPrompt: inputPrompt,
           targetFiles: targetFiles,
           pullRequest: pullRequest,
-          referenceFiles: referenceFiles
+          referenceFiles: referenceFiles,
+          otherCommandOutputs: otherCommandOutputs
+        },
+        this.ctxManager.cloneContext(),
+        __baml_options__?.tb?.__tb(),
+        __baml_options__?.clientRegistry,
+        false,
+        env
+      )
+    } catch (error) {
+      throw toBamlError(error)
+    }
+  }
+
+  async Plan(
+    pullRequest: types.PullRequestForPlan,
+    commands: types.Command[],
+    __baml_options__?: BamlCallOptions
+  ): Promise<HTTPRequest> {
+    try {
+      const rawEnv = __baml_options__?.env
+        ? { ...process.env, ...__baml_options__.env }
+        : { ...process.env }
+      const env: Record<string, string> = Object.fromEntries(
+        Object.entries(rawEnv).filter(([_, value]) => value !== undefined) as [
+          string,
+          string
+        ][]
+      )
+      return await this.runtime.buildRequest(
+        'Plan',
+        {
+          pullRequest: pullRequest,
+          commands: commands
         },
         this.ctxManager.cloneContext(),
         __baml_options__?.tb?.__tb(),
@@ -96,6 +140,7 @@ export class AsyncHttpStreamRequest {
     targetFiles: types.File[],
     pullRequest: types.PullRequest,
     referenceFiles: types.File[],
+    otherCommandOutputs: types.CommandOuputInPullRequest[],
     __baml_options__?: BamlCallOptions
   ): Promise<HTTPRequest> {
     try {
@@ -114,7 +159,40 @@ export class AsyncHttpStreamRequest {
           inputPrompt: inputPrompt,
           targetFiles: targetFiles,
           pullRequest: pullRequest,
-          referenceFiles: referenceFiles
+          referenceFiles: referenceFiles,
+          otherCommandOutputs: otherCommandOutputs
+        },
+        this.ctxManager.cloneContext(),
+        __baml_options__?.tb?.__tb(),
+        __baml_options__?.clientRegistry,
+        true,
+        env
+      )
+    } catch (error) {
+      throw toBamlError(error)
+    }
+  }
+
+  async Plan(
+    pullRequest: types.PullRequestForPlan,
+    commands: types.Command[],
+    __baml_options__?: BamlCallOptions
+  ): Promise<HTTPRequest> {
+    try {
+      const rawEnv = __baml_options__?.env
+        ? { ...process.env, ...__baml_options__.env }
+        : { ...process.env }
+      const env: Record<string, string> = Object.fromEntries(
+        Object.entries(rawEnv).filter(([_, value]) => value !== undefined) as [
+          string,
+          string
+        ][]
+      )
+      return await this.runtime.buildRequest(
+        'Plan',
+        {
+          pullRequest: pullRequest,
+          commands: commands
         },
         this.ctxManager.cloneContext(),
         __baml_options__?.tb?.__tb(),
