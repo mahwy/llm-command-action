@@ -24,6 +24,10 @@ inputs:
     description: 'Path to the commands configuration file'
     required: false
     default: '.llm-commands.yaml'
+  debug:
+    description: 'Include debug information such as token usage in PR comments'
+    required: false
+    default: 'false'
 
 # Define your outputs here.
 outputs:

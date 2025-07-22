@@ -30,6 +30,7 @@ jobs:
         uses: mahwy/llm-command-action@main
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          debug: true
           commands: |
             review-graphql-schema
         env:
