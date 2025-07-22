@@ -51,17 +51,39 @@ export function get_checks<CheckName extends string>(
 ): Check[] {
   return Object.values(checks)
 }
+export interface Command {
+  name: string
+  description: string
+  instructions: CommandInstruction
+}
+
+export interface CommandInstruction {
+  applyTo?: string | null
+  prompt: string
+  files: CommandReferenceFile[]
+  modifiedOnly?: boolean | null
+}
+
 export interface CommandOuputInPullRequest {
   command: string
   pull_request_comment: string
   summary: string
 }
 
+export interface CommandPlan {
+  name: string
+  loadFiles: LoadFileIntoContext[]
+  loadCommandOutputs: LoadCommandOutputIntoContext[]
+}
+
+export interface CommandReferenceFile {
+  name?: string | null
+  path: string
+}
+
 export interface Comment {
   author: string
   body: string
-  isFromLLMAction?: boolean | null
-  commandName?: string | null
 }
 
 export interface File {
@@ -71,8 +93,40 @@ export interface File {
   patch?: string | null
 }
 
+export interface LoadCommandOutputIntoContext {
+  reason: string
+  commandName: string
+}
+
+export interface LoadFileIntoContext {
+  reason: string
+  fullContent: boolean
+  path: string
+}
+
+export interface PlanResult {
+  plans: CommandPlan[]
+}
+
 export interface PullRequest {
   title: string
   body: string
   comments: Comment[]
+}
+
+export interface PullRequestCommentForPlan {
+  author: string
+  body: string
+}
+
+export interface PullRequestFileForPlan {
+  filename: string
+  status: 'added' | 'modified' | 'removed' | 'renamed'
+}
+
+export interface PullRequestForPlan {
+  title: string
+  body: string
+  comments: PullRequestCommentForPlan[]
+  files: PullRequestFileForPlan[]
 }

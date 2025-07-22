@@ -69,11 +69,16 @@ Create a `.llm-commands.yaml` file in your repository root:
 ```yaml
 # For provider name and options, see https://docs.boundaryml.com/ref/llm-client-providers/overview
 llm-clients:
-  # Currently, only one client is supported.
-  - provider: openai
+  large:
+    provider: openai
     options:
       api_key: env.OPENAI_API_KEY
-      model: gpt-4o-mini
+      model: gpt-4.1
+  small:
+    provider: openai
+    options:
+      api_key: env.OPENAI_API_KEY
+      model: gpt-4.1-mini
 commands:
   review-sql-schema:
     description: |

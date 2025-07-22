@@ -7,7 +7,7 @@ import {
 } from './config.js'
 import { GitHubService } from './github.js'
 import { CommandExecutor } from './executor.js'
-import { PullRequestInfo } from './types.js'
+import { PullRequestInfo, CommandConfig } from './types.js'
 /**
  * The main function for the action.
  *
@@ -35,7 +35,7 @@ export async function run(): Promise<void> {
     const config = await loadConfig(process.cwd(), configPath)
     const executor = new CommandExecutor(
       githubService,
-      config['llm-clients'] || [],
+      config['llm-clients'],
       debug
     )
     core.info(
@@ -120,6 +120,21 @@ export async function run(): Promise<void> {
       `Found ${changedFiles.length} changed files in PR #${prInfo.number}`
     )
 
+    // Generate execution plan for all commands
+    const commandsToExecute = commandsToRun.reduce(
+      (acc, name) => {
+        acc[name] = config.commands[name]
+        return acc
+      },
+      {} as Record<string, CommandConfig>
+    )
+
+    const executionPlan = await executor.planCommands(
+      commandsToExecute,
+      changedFiles,
+      prInfo
+    )
+
     const executedCommands: string[] = []
     const summaries: string[] = []
     const commandOutputs: Array<{
@@ -131,12 +146,14 @@ export async function run(): Promise<void> {
     for (const commandName of commandsToRun) {
       try {
         const commandConfig = config.commands[commandName]
+        const commandPlan = executionPlan[commandName]
         const commandOutput = await executor.executeCommand(
           commandName,
           commandConfig,
           changedFiles,
           prInfo,
-          commandOutputs
+          commandOutputs,
+          commandPlan
         )
 
         if (commandOutput) {

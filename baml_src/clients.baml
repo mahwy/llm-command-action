@@ -1,5 +1,31 @@
 // Learn more about clients at https://docs.boundaryml.com/docs/snippets/clients/overview
 
+client<llm> CustomGPT41 {
+  provider openai
+  retry_policy Exponential
+  options {
+    model "gpt-4.1"
+    api_key env.OPENAI_API_KEY
+  }
+}
+
+client<llm> CustomGPT41Mini {
+  provider openai
+  retry_policy Exponential
+  options {
+    model "gpt-4.1-mini"
+    api_key env.OPENAI_API_KEY
+  }
+}
+client<llm> CustomGPT41Nano {
+  provider openai
+  retry_policy Exponential
+  options {
+    model "gpt-4.1-nano"
+    api_key env.OPENAI_API_KEY
+  }
+}
+
 client<llm> CustomGPT4o {
   provider openai
   options {

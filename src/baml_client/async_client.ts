@@ -36,10 +36,20 @@ import type {
 import type { partial_types } from './partial_types.js'
 import type * as types from './types.js'
 import type {
+  Command,
+  CommandInstruction,
   CommandOuputInPullRequest,
+  CommandPlan,
+  CommandReferenceFile,
   Comment,
   File,
-  PullRequest
+  LoadCommandOutputIntoContext,
+  LoadFileIntoContext,
+  PlanResult,
+  PullRequest,
+  PullRequestCommentForPlan,
+  PullRequestFileForPlan,
+  PullRequestForPlan
 } from './types.js'
 import type TypeBuilder from './type_builder.js'
 import { AsyncHttpRequest, AsyncHttpStreamRequest } from './async_request.js'
@@ -154,6 +164,45 @@ export class BamlAsyncClient {
       throw toBamlError(error)
     }
   }
+
+  async Plan(
+    pullRequest: types.PullRequestForPlan,
+    commands: types.Command[],
+    __baml_options__?: BamlCallOptions
+  ): Promise<types.PlanResult> {
+    try {
+      const options = { ...this.bamlOptions, ...(__baml_options__ || {}) }
+      const collector = options.collector
+        ? Array.isArray(options.collector)
+          ? options.collector
+          : [options.collector]
+        : []
+      const rawEnv = __baml_options__?.env
+        ? { ...process.env, ...__baml_options__.env }
+        : { ...process.env }
+      const env: Record<string, string> = Object.fromEntries(
+        Object.entries(rawEnv).filter(([_, value]) => value !== undefined) as [
+          string,
+          string
+        ][]
+      )
+      const raw = await this.runtime.callFunction(
+        'Plan',
+        {
+          pullRequest: pullRequest,
+          commands: commands
+        },
+        this.ctxManager.cloneContext(),
+        options.tb?.__tb(),
+        options.clientRegistry,
+        collector,
+        env
+      )
+      return raw.parsed(false) as types.PlanResult
+    } catch (error) {
+      throw toBamlError(error)
+    }
+  }
 }
 
 class BamlStreamClient {
@@ -226,6 +275,56 @@ class BamlStreamClient {
         raw,
         (a): partial_types.CommandOuputInPullRequest => a,
         (a): types.CommandOuputInPullRequest => a,
+        this.ctxManager.cloneContext()
+      )
+    } catch (error) {
+      throw toBamlError(error)
+    }
+  }
+
+  Plan(
+    pullRequest: types.PullRequestForPlan,
+    commands: types.Command[],
+    __baml_options__?: {
+      tb?: TypeBuilder
+      clientRegistry?: ClientRegistry
+      collector?: Collector | Collector[]
+      env?: Record<string, string | undefined>
+    }
+  ): BamlStream<partial_types.PlanResult, types.PlanResult> {
+    try {
+      const options = { ...this.bamlOptions, ...(__baml_options__ || {}) }
+      const collector = options.collector
+        ? Array.isArray(options.collector)
+          ? options.collector
+          : [options.collector]
+        : []
+      const rawEnv = __baml_options__?.env
+        ? { ...process.env, ...__baml_options__.env }
+        : { ...process.env }
+      const env: Record<string, string> = Object.fromEntries(
+        Object.entries(rawEnv).filter(([_, value]) => value !== undefined) as [
+          string,
+          string
+        ][]
+      )
+      const raw = this.runtime.streamFunction(
+        'Plan',
+        {
+          pullRequest: pullRequest,
+          commands: commands
+        },
+        undefined,
+        this.ctxManager.cloneContext(),
+        options.tb?.__tb(),
+        options.clientRegistry,
+        collector,
+        env
+      )
+      return new BamlStream<partial_types.PlanResult, types.PlanResult>(
+        raw,
+        (a): partial_types.PlanResult => a,
+        (a): types.PlanResult => a,
         this.ctxManager.cloneContext()
       )
     } catch (error) {
