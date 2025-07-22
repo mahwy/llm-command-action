@@ -61,6 +61,7 @@ jobs:
         uses: ./
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          debug: true
           commands: |
             pr-ci-test
         env:
