@@ -25,9 +25,14 @@ export interface LLMClientConfig {
   }
 }
 
+export interface LLMClientsConfig {
+  large: LLMClientConfig
+  small: LLMClientConfig
+}
+
 export interface LLMCommandsConfig {
   handle?: string
-  'llm-clients'?: LLMClientConfig[]
+  'llm-clients': LLMClientsConfig
   commands: Record<string, CommandConfig>
 }
 
