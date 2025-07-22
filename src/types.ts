@@ -5,7 +5,7 @@ export interface CommandConfig {
 }
 
 export interface CommandInstruction {
-  applyTo: string | 'none'
+  applyTo?: string | 'none'
   prompt: string
   files?: FileReference[]
   modifiedOnly?: boolean // Default: true - only include files modified in the PR
