@@ -20,7 +20,7 @@ code reviews, documentation generation, and automated analysis.
 
 - GraphQL Schema Review
   - [GHA](https://github.com/mahwy/llm-command-action/blob/main/.github/workflows/demo-ci.yml)
-  - [Demo PR](https://github.com/mahwy/llm-command-action/pull/10)
+  - [Demo PR](https://github.com/mahwy/llm-command-action/pull/20)
 
 ## Quick Start
 
