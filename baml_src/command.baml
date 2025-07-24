@@ -38,6 +38,7 @@ function ExecuteCommandInPullRequest(inputPrompt: string, targetFiles: File[], p
   prompt #"
 
     {{ _.role("system")}}
+    
     Execute a given prompt for given target files and a pull request and return the ouput response. Refer to the pull requeest metadata, reference files and other command outputs for context.
 
     {{ _.role("user")}}

@@ -202,3 +202,207 @@ test plan_multiple_commands {
     ]
   }
 }
+
+class GetApplyToFilterResult {
+  reason string @description(#"
+    The reason for the applyTo(glob) filter
+  "#)
+  applyTo string @description(#"
+    A glob pattern
+  "#)
+}
+
+function GetApplyToFilter(pullRequest: PullRequestForPlan, command: Command) -> GetApplyToFilterResult {
+  client CustomGPT41Mini // Set OPENAI_API_KEY to use this client.
+  prompt #"
+    {{ _.role("system")}}
+    Get a glob pattern that can be used to filter the files that the command should be applied to.
+
+    {{ _.role("user")}}
+
+    <pullRequest>
+    <title>
+    {{ pullRequest.title }}
+    </title>
+    <body>
+    {{ pullRequest.body }}
+    </body>
+    </pullRequest>
+
+    <inputPrompt>
+    {{ command.instructions.prompt }}
+    </inputPrompt>
+
+    {{ ctx.output_format }}
+  "#
+}
+
+
+test get_apply_to_filter_for_typescript_code_in_pr {
+  functions [GetApplyToFilter]
+  args {
+    pullRequest {
+      title "Add feature xyz"
+      body ""
+      comments []
+      files []
+    }
+    command {
+        name "review-typescript-code"
+        description "type."
+        instructions {
+          prompt "Review all TypeScript code in the pull request and suggest improvements."
+          files []          
+        }
+      }
+  }
+}
+
+class GetModifiedOnlyFilterResult {
+  reason string @description(#"
+    The reason for the applyTo(glob) filter
+  "#)
+  modifiedOnly bool @description(#"
+    Whether to only apply the command to modified files or all files
+  "#)
+}
+
+function GetModifiedOnlyFilter(pullRequest: PullRequestForPlan, command: Command) -> GetModifiedOnlyFilterResult {
+  client CustomGPT41Mini // Set OPENAI_API_KEY to use this client.
+  prompt #"
+    {{ _.role("system")}}
+    Determine whether the command should only be applied to modified files in a PR or all files in the repository.
+
+    {{ _.role("user")}}
+
+    <pullRequest>
+    <title>
+    {{ pullRequest.title }}
+    </title>
+    <body>
+    {{ pullRequest.body }}
+    </body>
+    </pullRequest>
+
+    <inputPrompt>
+    {{ command.instructions.prompt }}
+    </inputPrompt>
+
+    {{ ctx.output_format }}
+  "#
+}
+
+test get_modified_only_filter_for_repo_documentation_index {
+  functions [GetModifiedOnlyFilter]
+  args {
+    pullRequest {
+      title "Add feature xyz"
+      body ""
+      comments []
+      files []
+    }
+    command {
+        name "regenerate-repo-documentation-index"
+        description "Regenerate the repo documentation index"
+        instructions {
+          prompt "Regenerate the repo documentation index"
+          files []          
+        }
+      }
+  }
+}
+
+test get_apply_to_filter_for_repo_documentation_index {
+  functions [GetApplyToFilter]
+  args {
+    pullRequest {
+      title "Add feature xyz"
+      body ""
+      comments []
+      files []
+    }
+    command {
+        name "regenerate-repo-documentation-index"
+        description "Regenerate the repo documentation index"
+        instructions {
+          prompt "Regenerate the repo documentation index"
+          files []          
+        }
+      }
+  }
+}
+
+
+class GetForEachModifierResult {
+  reason string @description(#"
+    The reason for the for each modifier
+  "#)
+  forEach bool @description(#"
+    Whether to apply the command to each file
+  "#)
+}
+
+function GetForEachModifider(pullRequest: PullRequestForPlan, command: Command) -> GetForEachModifierResult {
+  client CustomGPT41Mini // Set OPENAI_API_KEY to use this client.
+  prompt #"
+    {{ _.role("system")}}
+    Determine whether the command should be applied to each file.
+    {{ _.role("user")}}
+
+    <pullRequest>
+    <title>
+    {{ pullRequest.title }}
+    </title>
+    <body>
+    {{ pullRequest.body }}
+    </body>
+    </pullRequest>
+
+    <inputPrompt>
+    {{ command.instructions.prompt }}
+    </inputPrompt>
+
+    {{ ctx.output_format }}
+  "#
+}
+
+test get_for_each_modifier_repo_documentation_index {
+  functions [GetForEachModifider]
+  args {
+    pullRequest {
+      title "Add feature xyz"
+      body ""
+      comments []
+      files []
+    }
+    command {
+        name "regenerate-repo-documentation-index"
+        description "Regenerate the repo documentation index"
+        instructions {
+          prompt "Regenerate the repo documentation index"
+          files []          
+        }
+      }
+  }
+}
+
+
+test get_for_each_modifier_each_file {
+  functions [GetForEachModifider]
+  args {
+    pullRequest {
+      title "Add feature xyz"
+      body ""
+      comments []
+      files []
+    }
+    command {
+        name "generate-openapi-md-file"
+        description "Generate the MD version of the OpenAPI spec"
+        instructions {
+          prompt "Generate the MD version of the OpenAPI spec"
+          files []          
+        }
+      }
+  }
+}
