@@ -22,7 +22,7 @@ import type { BamlRuntime, BamlCtxManager, ClientRegistry, Image, Audio, Pdf, Vi
 import { toBamlError, HTTPRequest } from "@boundaryml/baml"
 import type { Checked, Check } from "./types.js"
 import type * as types from "./types.js"
-import type {Command, CommandInstruction, CommandOuputInPullRequest, CommandPlan, CommandReferenceFile, Comment, File, LoadCommandOutputIntoContext, LoadDirectoryStructure, LoadFileIntoContext, LoadPullRequestComments, LoadPullRequestDescription, LoadPullRequestFiles, LoadPullRequestTitle, PlanResult, PullRequest, PullRequestCommentForPlan, PullRequestFileForPlan, PullRequestForPlan, ReadPlannResult} from "./types.js"
+import type {Command, CommandInstruction, CommandOuputInPullRequest, CommandPlan, CommandReferenceFile, Comment, File, FileDiffOption, FileFullContentOption, LoadCommandOutputIntoContext, LoadDirectoryStructure, LoadFileIntoContext, LoadPullRequestComments, LoadPullRequestDescription, LoadPullRequestFiles, PlanResult, PullRequest, PullRequestCommentForPlan, PullRequestFileForPlan, PullRequestForPlan, ReadPlannResult} from "./types.js"
 import type TypeBuilder from "./type_builder.js"
 
 type BamlCallOptions = {

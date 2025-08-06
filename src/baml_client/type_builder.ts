@@ -41,19 +41,21 @@ export default class TypeBuilder {
     
     File: ClassViewer<'File', "name" | "path" | "content" | "patch">;
     
+    FileDiffOption: ClassViewer<'FileDiffOption', "reason" | "shouldInclude">;
+    
+    FileFullContentOption: ClassViewer<'FileFullContentOption', "reason" | "shouldInclude">;
+    
     LoadCommandOutputIntoContext: ClassViewer<'LoadCommandOutputIntoContext', "reason" | "commandName">;
     
-    LoadDirectoryStructure: ClassViewer<'LoadDirectoryStructure', "purpose" | "type">;
+    LoadDirectoryStructure: ClassViewer<'LoadDirectoryStructure', "reason" | "type">;
     
     LoadFileIntoContext: ClassViewer<'LoadFileIntoContext', "reason" | "fullContent" | "path">;
     
-    LoadPullRequestComments: ClassViewer<'LoadPullRequestComments', "purpose" | "type">;
+    LoadPullRequestComments: ClassViewer<'LoadPullRequestComments', "reason" | "shouldInclude">;
     
-    LoadPullRequestDescription: ClassViewer<'LoadPullRequestDescription', "purpose" | "type">;
+    LoadPullRequestDescription: ClassViewer<'LoadPullRequestDescription', "reason" | "shouldInclude">;
     
-    LoadPullRequestFiles: ClassViewer<'LoadPullRequestFiles', "purpose" | "type" | "includeNumberOfLines" | "includeFileSize" | "includeDiff">;
-    
-    LoadPullRequestTitle: ClassViewer<'LoadPullRequestTitle', "purpose" | "type">;
+    LoadPullRequestFiles: ClassViewer<'LoadPullRequestFiles', "reason" | "shouldInclude" | "fileDiffOption" | "fileFullContentOption">;
     
     PlanResult: ClassViewer<'PlanResult', "plans">;
     
@@ -65,14 +67,14 @@ export default class TypeBuilder {
     
     PullRequestForPlan: ClassViewer<'PullRequestForPlan', "title" | "body" | "comments" | "files">;
     
-    ReadPlannResult: ClassViewer<'ReadPlannResult', "pullRequestContextItemsToLoad">;
+    ReadPlannResult: ClassViewer<'ReadPlannResult', "loadPullRequestDescription" | "loadPullRequestComments" | "loadPullRequestFiles" | "loadDirectoryStructure">;
     
     
 
     constructor() {
         this.tb = new _TypeBuilder({
           classes: new Set([
-            "Command","CommandInstruction","CommandOuputInPullRequest","CommandPlan","CommandReferenceFile","Comment","File","LoadCommandOutputIntoContext","LoadDirectoryStructure","LoadFileIntoContext","LoadPullRequestComments","LoadPullRequestDescription","LoadPullRequestFiles","LoadPullRequestTitle","PlanResult","PullRequest","PullRequestCommentForPlan","PullRequestFileForPlan","PullRequestForPlan","ReadPlannResult",
+            "Command","CommandInstruction","CommandOuputInPullRequest","CommandPlan","CommandReferenceFile","Comment","File","FileDiffOption","FileFullContentOption","LoadCommandOutputIntoContext","LoadDirectoryStructure","LoadFileIntoContext","LoadPullRequestComments","LoadPullRequestDescription","LoadPullRequestFiles","PlanResult","PullRequest","PullRequestCommentForPlan","PullRequestFileForPlan","PullRequestForPlan","ReadPlannResult",
           ]),
           enums: new Set([
             
@@ -108,12 +110,20 @@ export default class TypeBuilder {
           "name","path","content","patch",
         ]);
         
+        this.FileDiffOption = this.tb.classViewer("FileDiffOption", [
+          "reason","shouldInclude",
+        ]);
+        
+        this.FileFullContentOption = this.tb.classViewer("FileFullContentOption", [
+          "reason","shouldInclude",
+        ]);
+        
         this.LoadCommandOutputIntoContext = this.tb.classViewer("LoadCommandOutputIntoContext", [
           "reason","commandName",
         ]);
         
         this.LoadDirectoryStructure = this.tb.classViewer("LoadDirectoryStructure", [
-          "purpose","type",
+          "reason","type",
         ]);
         
         this.LoadFileIntoContext = this.tb.classViewer("LoadFileIntoContext", [
@@ -121,19 +131,15 @@ export default class TypeBuilder {
         ]);
         
         this.LoadPullRequestComments = this.tb.classViewer("LoadPullRequestComments", [
-          "purpose","type",
+          "reason","shouldInclude",
         ]);
         
         this.LoadPullRequestDescription = this.tb.classViewer("LoadPullRequestDescription", [
-          "purpose","type",
+          "reason","shouldInclude",
         ]);
         
         this.LoadPullRequestFiles = this.tb.classViewer("LoadPullRequestFiles", [
-          "purpose","type","includeNumberOfLines","includeFileSize","includeDiff",
-        ]);
-        
-        this.LoadPullRequestTitle = this.tb.classViewer("LoadPullRequestTitle", [
-          "purpose","type",
+          "reason","shouldInclude","fileDiffOption","fileFullContentOption",
         ]);
         
         this.PlanResult = this.tb.classViewer("PlanResult", [
@@ -157,7 +163,7 @@ export default class TypeBuilder {
         ]);
         
         this.ReadPlannResult = this.tb.classViewer("ReadPlannResult", [
-          "pullRequestContextItemsToLoad",
+          "loadPullRequestDescription","loadPullRequestComments","loadPullRequestFiles","loadDirectoryStructure",
         ]);
         
         

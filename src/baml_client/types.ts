@@ -96,6 +96,18 @@ export interface File {
   
 }
 
+export interface FileDiffOption {
+  reason: string
+  shouldInclude: boolean
+  
+}
+
+export interface FileFullContentOption {
+  reason: string
+  shouldInclude: boolean
+  
+}
+
 export interface LoadCommandOutputIntoContext {
   reason: string
   commandName: string
@@ -103,7 +115,7 @@ export interface LoadCommandOutputIntoContext {
 }
 
 export interface LoadDirectoryStructure {
-  purpose: string
+  reason: string
   type: "directory-structure"
   
 }
@@ -116,29 +128,22 @@ export interface LoadFileIntoContext {
 }
 
 export interface LoadPullRequestComments {
-  purpose: string
-  type: "pr-comments"
+  reason: string
+  shouldInclude: boolean
   
 }
 
 export interface LoadPullRequestDescription {
-  purpose: string
-  type: "pr-description"
+  reason: string
+  shouldInclude: boolean
   
 }
 
 export interface LoadPullRequestFiles {
-  purpose: string
-  type: "pr-files"
-  includeNumberOfLines: boolean
-  includeFileSize: boolean
-  includeDiff: boolean
-  
-}
-
-export interface LoadPullRequestTitle {
-  purpose: string
-  type: "pr-title"
+  reason: string
+  shouldInclude: boolean
+  fileDiffOption: FileDiffOption
+  fileFullContentOption: FileFullContentOption
   
 }
 
@@ -175,8 +180,9 @@ export interface PullRequestForPlan {
 }
 
 export interface ReadPlannResult {
-  pullRequestContextItemsToLoad: (LoadPullRequestTitle | LoadPullRequestDescription | LoadPullRequestComments | LoadPullRequestFiles | LoadDirectoryStructure)[]
+  loadPullRequestDescription?: LoadPullRequestDescription | null
+  loadPullRequestComments: LoadPullRequestComments
+  loadPullRequestFiles: LoadPullRequestFiles
+  loadDirectoryStructure: LoadDirectoryStructure
   
 }
-
-export type PullRequestContextItem = LoadPullRequestTitle | LoadPullRequestDescription | LoadPullRequestComments | LoadPullRequestFiles | LoadDirectoryStructure

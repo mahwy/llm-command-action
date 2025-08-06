@@ -22,7 +22,7 @@ import type { BamlRuntime, FunctionResult, BamlCtxManager, Image, Audio, Pdf, Vi
 import { toBamlError, type HTTPRequest } from "@boundaryml/baml"
 import type { Checked, Check, RecursivePartialNull as MovedRecursivePartialNull } from "./types.js"
 import type * as types from "./types.js"
-import type {Command, CommandInstruction, CommandOuputInPullRequest, CommandPlan, CommandReferenceFile, Comment, File, LoadCommandOutputIntoContext, LoadDirectoryStructure, LoadFileIntoContext, LoadPullRequestComments, LoadPullRequestDescription, LoadPullRequestFiles, LoadPullRequestTitle, PlanResult, PullRequest, PullRequestCommentForPlan, PullRequestFileForPlan, PullRequestForPlan, ReadPlannResult} from "./types.js"
+import type {Command, CommandInstruction, CommandOuputInPullRequest, CommandPlan, CommandReferenceFile, Comment, File, FileDiffOption, FileFullContentOption, LoadCommandOutputIntoContext, LoadDirectoryStructure, LoadFileIntoContext, LoadPullRequestComments, LoadPullRequestDescription, LoadPullRequestFiles, PlanResult, PullRequest, PullRequestCommentForPlan, PullRequestFileForPlan, PullRequestForPlan, ReadPlannResult} from "./types.js"
 import type TypeBuilder from "./type_builder.js"
 import { HttpRequest, HttpStreamRequest } from "./sync_request.js"
 import { LlmResponseParser, LlmStreamParser } from "./parser.js"

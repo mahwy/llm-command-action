@@ -1,45 +1,51 @@
 
-class LoadPullRequestTitle {
-  purpose string @description(#" The purpose for loading the pull request title. "#)
-  type "pr-title"
-}
 
 class LoadPullRequestDescription {
-  purpose string @description(#" The purpose for loading the pull request title. "#)
-  type "pr-description"
+  reason string @description(#" The reason for including or not including the pull request description. Justify your decision."#)
+  shouldInclude bool @description(#" Whether to include the pull request description based on the reason. "#)
 }
 
 class LoadPullRequestComments {
-  purpose string @description(#" The purpose for loading the pull request comments. "#)
-  type "pr-comments"
+  reason string @description(#" The reason for including or not including the pull request comments. Justify your decision."#)
+  shouldInclude bool @description(#" Whether to include the pull request comments based on the reason. "#)
+}
+
+class FileDiffOption {
+  reason string @description(#" The reason for including or not including the diff of the file. Justify your decision. "#)
+  shouldInclude bool @description(#" Whether to include the diff of the file based on the reason. "#)
+}
+
+class FileFullContentOption {
+  reason string @description(#" The reason for including or not including the full content of the file. Justify your decision. "#)
+  shouldInclude bool @description(#" Whether to include the full content of the file based on the reason. "#)
 }
 
 class LoadPullRequestFiles {
-  purpose string @description(#" The purpose for loading the pull request files. "#)
-  type "pr-files"
-  includeNumberOfLines bool @description(#" Whether to include the number of lines in the file. "#)
-  includeFileSize bool @description(#" Whether to include the size of the file. "#)    
-  includeDiff bool @description(#" Whether to include the diff of the file. "#)
+  reason string @description(#" The reason for loading the pull request files. It can load just the metadata(path, number of lines, size) of the file, diffs or the full content of the file. "#)
+  shouldInclude bool @description(#" Whether to include the pull request files based on the reason. "#)
+  // file path, size, number of lines are loaded by default.
+  fileDiffOption FileDiffOption @description(#"(Only applicalbe if shouldInclude is true) The option for including or not including the diff of the file. "#)
+  fileFullContentOption FileFullContentOption @description(#"(Only applicalbe if shouldInclude is true) The option for including or not including the full content of the file. Including the full content can be very expensive so only include it if necessary. "#)
 }
 
 class LoadDirectoryStructure {
-  purpose string @description(#" The purpose for loading the directory structure of the repository. "#)
+  reason string @description(#" The reason for loading the directory structure of the repository. "#)
   type "directory-structure"
 }
 
-type PullRequestContextItem = LoadPullRequestTitle | LoadPullRequestDescription | LoadPullRequestComments | LoadPullRequestFiles | LoadDirectoryStructure
-
 class ReadPlannResult {
-  pullRequestContextItemsToLoad PullRequestContextItem[] @description(#"
-    Necessary information to execute the command.
-  "#)
+  // PR title will be loaded by default.
+  loadPullRequestDescription LoadPullRequestDescription?
+  loadPullRequestComments LoadPullRequestComments
+  loadPullRequestFiles LoadPullRequestFiles
+  loadDirectoryStructure LoadDirectoryStructure
 }
 
 function GetReadPlan(command: Command) -> ReadPlannResult {
-  client CustomGPT41Nano // Set OPENAI_API_KEY to use this client.
+  client CustomGPT41Mini // Set OPENAI_API_KEY to use this client.
   prompt #"
     {{ _.role("system")}}
-    Given a command definition, pick the information necessary to execute the command. 
+    You are a planning assistant for a code assistant tool. Given a command definition, pick the information necessary to execute the command. 
     {{ _.role("user")}}
 
     <command_definition>

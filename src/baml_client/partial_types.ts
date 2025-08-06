@@ -20,7 +20,7 @@ $ pnpm add @boundaryml/baml
 
 import type { Image, Audio, Pdf, Video } from "@boundaryml/baml"
 import type { Checked, Check } from "./types.js"
-import type {  Command,  CommandInstruction,  CommandOuputInPullRequest,  CommandPlan,  CommandReferenceFile,  Comment,  File,  LoadCommandOutputIntoContext,  LoadDirectoryStructure,  LoadFileIntoContext,  LoadPullRequestComments,  LoadPullRequestDescription,  LoadPullRequestFiles,  LoadPullRequestTitle,  PlanResult,  PullRequest,  PullRequestCommentForPlan,  PullRequestFileForPlan,  PullRequestForPlan,  ReadPlannResult } from "./types.js"
+import type {  Command,  CommandInstruction,  CommandOuputInPullRequest,  CommandPlan,  CommandReferenceFile,  Comment,  File,  FileDiffOption,  FileFullContentOption,  LoadCommandOutputIntoContext,  LoadDirectoryStructure,  LoadFileIntoContext,  LoadPullRequestComments,  LoadPullRequestDescription,  LoadPullRequestFiles,  PlanResult,  PullRequest,  PullRequestCommentForPlan,  PullRequestFileForPlan,  PullRequestForPlan,  ReadPlannResult } from "./types.js"
 import type * as types from "./types.js"
 
 /******************************************************************************
@@ -71,12 +71,20 @@ export namespace partial_types {
       content?: string | null
       patch?: string | null
     }
+    export interface FileDiffOption {
+      reason?: string | null
+      shouldInclude?: boolean | null
+    }
+    export interface FileFullContentOption {
+      reason?: string | null
+      shouldInclude?: boolean | null
+    }
     export interface LoadCommandOutputIntoContext {
       reason?: string | null
       commandName?: string | null
     }
     export interface LoadDirectoryStructure {
-      purpose?: string | null
+      reason?: string | null
       type?: "directory-structure" | null
     }
     export interface LoadFileIntoContext {
@@ -85,23 +93,18 @@ export namespace partial_types {
       path?: string | null
     }
     export interface LoadPullRequestComments {
-      purpose?: string | null
-      type?: "pr-comments" | null
+      reason?: string | null
+      shouldInclude?: boolean | null
     }
     export interface LoadPullRequestDescription {
-      purpose?: string | null
-      type?: "pr-description" | null
+      reason?: string | null
+      shouldInclude?: boolean | null
     }
     export interface LoadPullRequestFiles {
-      purpose?: string | null
-      type?: "pr-files" | null
-      includeNumberOfLines?: boolean | null
-      includeFileSize?: boolean | null
-      includeDiff?: boolean | null
-    }
-    export interface LoadPullRequestTitle {
-      purpose?: string | null
-      type?: "pr-title" | null
+      reason?: string | null
+      shouldInclude?: boolean | null
+      fileDiffOption?: FileDiffOption | null
+      fileFullContentOption?: FileFullContentOption | null
     }
     export interface PlanResult {
       plans: CommandPlan[]
@@ -126,8 +129,9 @@ export namespace partial_types {
       files: PullRequestFileForPlan[]
     }
     export interface ReadPlannResult {
-      pullRequestContextItemsToLoad: (LoadPullRequestTitle | LoadPullRequestDescription | LoadPullRequestComments | LoadPullRequestFiles | LoadDirectoryStructure)[]
+      loadPullRequestDescription?: LoadPullRequestDescription | null
+      loadPullRequestComments?: LoadPullRequestComments | null
+      loadPullRequestFiles?: LoadPullRequestFiles | null
+      loadDirectoryStructure?: LoadDirectoryStructure | null
     }
-export type PullRequestContextItem = LoadPullRequestTitle | LoadPullRequestDescription | LoadPullRequestComments | LoadPullRequestFiles | LoadDirectoryStructure | null
-
 }
